@@ -59,7 +59,14 @@ func ParsePrice(value string) (float64, error) {
 	if value == "" {
 		return 0, nil
 	}
-	cleaned := strings.TrimSpace(strings.TrimPrefix(value, "€"))
+	cleaned := strings.TrimSpace(value)
+	if strings.HasPrefix(cleaned, "€") {
+		cleaned = strings.TrimPrefix(cleaned, "€")
+	} else if strings.HasPrefix(cleaned, "S$") {
+		cleaned = strings.TrimPrefix(cleaned, "S$")
+	} else if strings.HasPrefix(cleaned, "$") {
+		cleaned = strings.TrimPrefix(cleaned, "$")
+	}
 	cleaned = strings.ReplaceAll(cleaned, ",", "")
 	return strconv.ParseFloat(cleaned, 64)
 }
@@ -86,7 +93,12 @@ func ParseHDD(value string) (int, string, error) {
 		return 0, "", err
 	}
 	unit := matches[3]
-	return count * size, unit, nil
+	diskType := matches[4]
+	total := count * size
+	if strings.EqualFold(unit, "TB") {
+		total = total * 1024
+	}
+	return total, diskType, nil
 }
 
 func ParseStorageValue(value string) (int, error) {

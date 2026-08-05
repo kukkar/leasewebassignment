@@ -41,15 +41,18 @@ func TestReplaceServers(t *testing.T) {
 
 func TestSaveUpload(t *testing.T) {
 	temp := t.TempDir()
-	source := filepath.Join(temp, "upload.csv")
-	if err := os.WriteFile(source, []byte("data"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	content := []byte("data")
 	repo := NewInMemoryRepository(filepath.Join(temp, "uploads"))
-	if err := repo.SaveUpload(context.Background(), source); err != nil {
+	path, err := repo.SaveUpload(context.Background(), "upload.csv", content)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(temp, "uploads", "upload.csv")); err != nil {
-		t.Fatalf("expected saved upload, got %v", err)
+	if got, want := filepath.Base(path), "upload.csv"; got != want {
+		t.Fatalf("expected saved filename %q, got %q", want, got)
+	}
+	if got, err := os.ReadFile(path); err != nil {
+		t.Fatal(err)
+	} else if string(got) != string(content) {
+		t.Fatalf("expected content %q, got %q", content, got)
 	}
 }

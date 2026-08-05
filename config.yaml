@@ -1,0 +1,9 @@
+server:
+  host: 127.0.0.1
+  port: 8080
+  timeout: 30
+
+app:
+  data_file: data/servers.csv
+  upload_dir: data/uploads
+  jwt_signing_key: secret-key

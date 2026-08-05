@@ -21,8 +21,8 @@ func (m *mockRepo) ReplaceServers(ctx context.Context, servers []model.Server) e
 	return nil
 }
 
-func (m *mockRepo) SaveUpload(ctx context.Context, sourcePath string) error {
-	return nil
+func (m *mockRepo) SaveUpload(ctx context.Context, filename string, content []byte) (string, error) {
+	return "", nil
 }
 
 func TestUploadServerData(t *testing.T) {
@@ -30,7 +30,7 @@ func TestUploadServerData(t *testing.T) {
 	repo := &mockRepo{}
 	service := NewServerService(repo)
 
-	if err := service.UploadServerData(context.Background(), bytes.NewBufferString(csvData)); err != nil {
+	if err := service.UploadServerData(context.Background(), "upload.csv", bytes.NewBufferString(csvData)); err != nil {
 		t.Fatal(err)
 	}
 	if len(repo.servers) != 1 || repo.servers[0].Model != "Dell R210" {

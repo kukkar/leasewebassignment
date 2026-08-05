@@ -1,0 +1,101 @@
+{
+  "info": {
+    "name": "Leaseweb Assignment API",
+    "description": "Collection for the Leaseweb Assignment server API.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "item": [
+    {
+      "name": "Get Servers",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/servers?model=AMD%20EPYC&ram=32GB&hdd=4x1TB&location=Amsterdam&price_min=50&price_max=200",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "servers"
+          ],
+          "query": [
+            {
+              "key": "model",
+              "value": "AMD EPYC"
+            },
+            {
+              "key": "ram",
+              "value": "32GB"
+            },
+            {
+              "key": "hdd",
+              "value": "4x1TB"
+            },
+            {
+              "key": "location",
+              "value": "Amsterdam"
+            },
+            {
+              "key": "price_min",
+              "value": "50"
+            },
+            {
+              "key": "price_max",
+              "value": "200"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Upload Servers CSV",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt_token}}"
+          }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": ""
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/admin/upload",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "admin",
+            "upload"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "jwt_token",
+      "value": "your-jwt-token"
+    }
+  ]
+}

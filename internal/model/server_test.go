@@ -10,6 +10,8 @@ func TestParsePrice(t *testing.T) {
 		wantErr  bool
 	}{
 		{"valid euros", "€49.99", 49.99, false},
+		{"valid dollars", "$105.99", 105.99, false},
+		{"valid singapore dollars", "S$565.99", 565.99, false},
 		{"valid plain", "119.00", 119.00, false},
 		{"invalid string", "abc", 0, true},
 	}

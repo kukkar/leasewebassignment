@@ -5,6 +5,8 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/sahil/leasewebassignment/internal/model"
@@ -13,7 +15,8 @@ import (
 
 type Service interface {
 	GetServers(ctx context.Context, filter model.ServerFilter) ([]model.Server, error)
-	UploadServerData(ctx context.Context, reader io.Reader) error
+	UploadServerData(ctx context.Context, filename string, reader io.Reader) error
+	LoadServerData(ctx context.Context, path string) error
 }
 
 type ServerService struct {
@@ -28,15 +31,31 @@ func (s *ServerService) GetServers(ctx context.Context, filter model.ServerFilte
 	return s.repo.ListServers(ctx, filter)
 }
 
-func (s *ServerService) UploadServerData(ctx context.Context, reader io.Reader) error {
-	servers, err := parseCSV(reader)
+func (s *ServerService) UploadServerData(ctx context.Context, filename string, reader io.Reader) error {
+	content, err := io.ReadAll(reader)
 	if err != nil {
+		return &ServiceError{Op: "upload", Err: err}
+	}
+	servers, err := parseCSV(strings.NewReader(string(content)))
+	if err != nil {
+		return &ServiceError{Op: "upload", Err: err}
+	}
+	if _, err := s.repo.SaveUpload(ctx, filename, content); err != nil {
 		return &ServiceError{Op: "upload", Err: err}
 	}
 	if err := s.repo.ReplaceServers(ctx, servers); err != nil {
 		return &ServiceError{Op: "upload", Err: err}
 	}
 	return nil
+}
+
+func (s *ServerService) LoadServerData(ctx context.Context, path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return &ServiceError{Op: "load", Err: err}
+	}
+	defer f.Close()
+	return s.UploadServerData(ctx, filepath.Base(path), f)
 }
 
 func parseCSV(reader io.Reader) ([]model.Server, error) {
@@ -51,11 +70,15 @@ func parseCSV(reader io.Reader) ([]model.Server, error) {
 	headers := rows[0]
 	expected := []string{"Model", "RAM", "HDD", "Location", "Price"}
 	for i, want := range expected {
-		if i >= len(headers) || headers[i] != want {
+		got := ""
+		if i < len(headers) {
+			got = headers[i]
+		}
+		if got != want {
 			return nil, &CSVParseError{
 				Column: "header",
 				Reason: "unexpected header",
-				Err:    fmt.Errorf("%w: got %q want %q", store.ErrInvalidCSVHeader, headers[i], want),
+				Err:    fmt.Errorf("%w: got %q want %q", store.ErrInvalidCSVHeader, got, want),
 			}
 		}
 	}
