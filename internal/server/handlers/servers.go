@@ -10,13 +10,10 @@ func (h *Handler) GetServers(r *http.Request) (*HandlerResult, error) {
 	req, err := NewGetServersRequestBuilder(r.URL.Query()).
 		WithModel().
 		WithRAM().
-		WithHDD().
 		WithLocation().
 		WithDiskType().
 		WithStorageMin().
 		WithStorageMax().
-		WithPriceMin().
-		WithPriceMax().
 		Build()
 	if err != nil {
 		return nil, api.InvalidInput("invalid query parameters", err.Error())

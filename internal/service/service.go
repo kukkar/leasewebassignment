@@ -20,11 +20,18 @@ type Service interface {
 }
 
 type ServerService struct {
-	repo store.Repository
+	repo   store.Repository
+	parser Parser
 }
 
+// NewServerService constructs a service with the default CSV parser.
 func NewServerService(repo store.Repository) *ServerService {
-	return &ServerService{repo: repo}
+	return NewServerServiceWithParser(repo, NewCSVParser())
+}
+
+// NewServerServiceWithParser allows injecting a custom parser strategy.
+func NewServerServiceWithParser(repo store.Repository, parser Parser) *ServerService {
+	return &ServerService{repo: repo, parser: parser}
 }
 
 func (s *ServerService) GetServers(ctx context.Context, filter model.ServerFilter) ([]model.Server, error) {
@@ -36,7 +43,7 @@ func (s *ServerService) UploadServerData(ctx context.Context, filename string, r
 	if err != nil {
 		return &ServiceError{Op: "upload", Err: err}
 	}
-	servers, err := parseCSV(strings.NewReader(string(content)))
+	servers, err := s.parser.Parse(strings.NewReader(string(content)))
 	if err != nil {
 		return &ServiceError{Op: "upload", Err: err}
 	}

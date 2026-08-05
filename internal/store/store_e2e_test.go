@@ -78,7 +78,6 @@ func TestListServersFilterFromCSV(t *testing.T) {
 	}{
 		{"filter ram 4GB", model.ServerFilter{RAM: "4GB"}, func(s model.Server) bool { return strings.Contains(strings.ToLower(s.RAM), "4gb") }},
 		{"filter location Washington", model.ServerFilter{Location: "Washington"}, func(s model.Server) bool { return strings.Contains(strings.ToLower(s.Location), "washington") }},
-		{"filter hdd 4x1TB", model.ServerFilter{HDD: "4x1TB"}, func(s model.Server) bool { return strings.Contains(strings.ToLower(s.HDD), "4x1tb") }},
 	}
 
 	for _, tc := range tests {

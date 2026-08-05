@@ -44,9 +44,7 @@ func (r *InMemoryRepository) ListServers(ctx context.Context, filter model.Serve
 		if filter.RAM != "" && !stringMatches(s.RAM, filter.RAM) {
 			continue
 		}
-		if filter.HDD != "" && !stringMatches(s.HDD, filter.HDD) {
-			continue
-		}
+		// free-text HDD filter removed; rely on storage and disk-type filters
 		// parse HDD to support storage range and disk-type filtering
 		totalGB := 0
 		diskType := ""
@@ -57,12 +55,6 @@ func (r *InMemoryRepository) ListServers(ctx context.Context, filter model.Serve
 			}
 		}
 		if filter.Location != "" && !stringMatches(s.Location, filter.Location) {
-			continue
-		}
-		if filter.PriceMin != nil && s.Price < *filter.PriceMin {
-			continue
-		}
-		if filter.PriceMax != nil && s.Price > *filter.PriceMax {
 			continue
 		}
 		if filter.DiskType != "" && !strings.EqualFold(filter.DiskType, diskType) {

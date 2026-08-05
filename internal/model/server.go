@@ -25,14 +25,10 @@ type Server struct {
 type ServerFilter struct {
 	Model      string
 	RAM        string
-	HDD        string
 	Location   string
-	PriceMin   *float64
-	PriceMax   *float64
 	DiskType   string
 	StorageMin *int
 	StorageMax *int
-	Search     string
 }
 
 func ValidateRAM(value string) error {
