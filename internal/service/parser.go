@@ -22,6 +22,9 @@ func NewCSVParser() *CSVParser { return &CSVParser{} }
 
 func (p *CSVParser) Parse(reader io.Reader) ([]model.Server, error) {
 	r := csv.NewReader(reader)
+	r.TrimLeadingSpace = true
+	r.LazyQuotes = true
+	r.FieldsPerRecord = -1
 	rows, err := r.ReadAll()
 	if err != nil {
 		return nil, &CSVParseError{Reason: "read csv", Err: err}
@@ -62,6 +65,10 @@ func (p *CSVParser) Parse(reader io.Reader) ([]model.Server, error) {
 				Err:    err,
 			}
 		}
+		// Columns beyond Price (index 4) are ignored. The source spreadsheet
+		// export carries a "Filters" reference table in these trailing
+		// columns on every row (mostly empty, but always present) - it is
+		// spreadsheet layout noise, not a continuation of Location.
 		parsed = append(parsed, model.Server{
 			Model:    strings.TrimSpace(row[0]),
 			RAM:      strings.TrimSpace(row[1]),

@@ -1,9 +1,11 @@
+// Package service orchestrates parsing and storing uploaded server catalogs
+// and answering filtered catalog queries. It has no logging concerns of its
+// own - see logging.go's NewLoggingService for observability, kept as a
+// separate decorator so business logic here stays free of that concern.
 package service
 
 import (
 	"context"
-	"encoding/csv"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -61,59 +63,6 @@ func (s *ServerService) LoadServerData(ctx context.Context, path string) error {
 	if err != nil {
 		return &ServiceError{Op: "load", Err: err}
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	return s.UploadServerData(ctx, filepath.Base(path), f)
-}
-
-func parseCSV(reader io.Reader) ([]model.Server, error) {
-	r := csv.NewReader(reader)
-	rows, err := r.ReadAll()
-	if err != nil {
-		return nil, &CSVParseError{Reason: "read csv", Err: err}
-	}
-	if len(rows) < 1 {
-		return nil, &CSVParseError{Reason: "empty csv", Err: ErrInvalidUpload}
-	}
-	headers := rows[0]
-	expected := []string{"Model", "RAM", "HDD", "Location", "Price"}
-	for i, want := range expected {
-		got := ""
-		if i < len(headers) {
-			got = headers[i]
-		}
-		if got != want {
-			return nil, &CSVParseError{
-				Column: "header",
-				Reason: "unexpected header",
-				Err:    fmt.Errorf("%w: got %q want %q", store.ErrInvalidCSVHeader, got, want),
-			}
-		}
-	}
-	parsed := make([]model.Server, 0, len(rows)-1)
-	for i, row := range rows[1:] {
-		if len(row) < 5 {
-			return nil, &CSVParseError{
-				Row:    i + 2,
-				Reason: "too few columns",
-				Err:    ErrInvalidUpload,
-			}
-		}
-		price, err := model.ParsePrice(row[4])
-		if err != nil {
-			return nil, &CSVParseError{
-				Row:    i + 2,
-				Column: "Price",
-				Reason: "invalid price",
-				Err:    err,
-			}
-		}
-		parsed = append(parsed, model.Server{
-			Model:    strings.TrimSpace(row[0]),
-			RAM:      strings.TrimSpace(row[1]),
-			HDD:      strings.TrimSpace(row[2]),
-			Location: strings.TrimSpace(row[3]),
-			Price:    price,
-		})
-	}
-	return parsed, nil
 }

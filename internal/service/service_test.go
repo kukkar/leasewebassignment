@@ -37,3 +37,16 @@ func TestUploadServerData(t *testing.T) {
 		t.Fatalf("expected uploaded server in repo, got %+v", repo.servers)
 	}
 }
+
+func TestUploadServerDataWithBareQuote(t *testing.T) {
+	csvData := "Model,RAM,HDD,Location,Price\nDell R210,16GB,2x2TBSATA2,AmsterdamAMS-01\"test,€49.99\n"
+	repo := &mockRepo{}
+	service := NewServerService(repo)
+
+	if err := service.UploadServerData(context.Background(), "upload.csv", bytes.NewBufferString(csvData)); err != nil {
+		t.Fatalf("expected upload to succeed with bare quote, got %v", err)
+	}
+	if len(repo.servers) != 1 || repo.servers[0].Model != "Dell R210" {
+		t.Fatalf("expected uploaded server in repo, got %+v", repo.servers)
+	}
+}
