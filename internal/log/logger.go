@@ -22,15 +22,6 @@ func NewLogger(level string) (*zap.SugaredLogger, error) {
 	return logger.Sugar(), nil
 }
 
-// NewDevLogger builds a development-friendly logger (console, leveled).
-func NewDevLogger() (*zap.SugaredLogger, error) {
-	logger, err := zap.NewDevelopment()
-	if err != nil {
-		return nil, err
-	}
-	return logger.Sugar(), nil
-}
-
 func parseLevel(level string) zapcore.Level {
 	switch strings.ToLower(strings.TrimSpace(level)) {
 	case "debug":

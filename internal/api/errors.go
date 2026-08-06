@@ -20,6 +20,7 @@ import (
 	"os"
 
 	"github.com/sahil/leasewebassignment/internal/service"
+	"github.com/sahil/leasewebassignment/internal/store"
 )
 
 const (
@@ -124,6 +125,14 @@ func MapError(err error) (int, APIError) {
 	var svcErr *service.ServiceError
 	if errors.As(err, &svcErr) {
 		return MapError(svcErr.Err)
+	}
+
+	// Symmetric with the ServiceError branch above: peels a StoreError's own
+	// "store <op>:" prefix so a fallback 500's details show the innermost
+	// cause, not a wrapper describing which internal layer noticed it.
+	var storeErr *store.StoreError
+	if errors.As(err, &storeErr) {
+		return MapError(storeErr.Err)
 	}
 
 	return http.StatusInternalServerError, *InternalError("internal server error", err.Error())

@@ -8,8 +8,6 @@ import (
 var (
 	ErrRepositoryUninitialized = errors.New("repository uninitialized")
 	ErrSourcePathRequired      = errors.New("source path required")
-	ErrCSVNoRows               = errors.New("csv file has no rows")
-	ErrInvalidCSVHeader        = errors.New("invalid csv header")
 )
 
 type StoreError struct {

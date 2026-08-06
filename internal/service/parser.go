@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/sahil/leasewebassignment/internal/model"
-	"github.com/sahil/leasewebassignment/internal/store"
 )
 
 // Parser parses an upload payload into domain servers.
@@ -43,7 +42,7 @@ func (p *CSVParser) Parse(reader io.Reader) ([]model.Server, error) {
 			return nil, &CSVParseError{
 				Column: "header",
 				Reason: "unexpected header",
-				Err:    fmt.Errorf("%w: got %q want %q", store.ErrInvalidCSVHeader, got, want),
+				Err:    fmt.Errorf("%w: got %q want %q", ErrInvalidCSVHeader, got, want),
 			}
 		}
 	}

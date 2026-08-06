@@ -2,15 +2,10 @@ package middleware
 
 import (
 	"crypto/subtle"
-	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/sahil/leasewebassignment/internal/api"
-)
-
-var (
-	ErrInvalidToken = errors.New("invalid authorization token")
 )
 
 const bearerPrefix = "Bearer "

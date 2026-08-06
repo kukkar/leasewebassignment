@@ -7,6 +7,9 @@ import (
 
 var (
 	ErrInvalidUpload = errors.New("invalid upload payload")
+	// ErrInvalidCSVHeader lives here, not in internal/store: CSV header
+	// validation is a parsing concern (see parser.go), not a storage one.
+	ErrInvalidCSVHeader = errors.New("invalid csv header")
 )
 
 type ServiceError struct {

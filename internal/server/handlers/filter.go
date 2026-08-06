@@ -70,14 +70,7 @@ func (b *GetServersRequestBuilder) WithRAM() *GetServersRequestBuilder {
 		if val == "" {
 			continue
 		}
-		ok := false
-		for _, a := range b.allowedRAM {
-			if strings.EqualFold(a, val) {
-				ok = true
-				break
-			}
-		}
-		if !ok {
+		if !containsFold(b.allowedRAM, val) {
 			b.errs = append(b.errs, fmt.Sprintf("ram: %q is invalid, must be one of: %s", val, strings.Join(b.allowedRAM, ", ")))
 			continue
 		}
@@ -97,17 +90,20 @@ func (b *GetServersRequestBuilder) WithDiskType() *GetServersRequestBuilder {
 	if val == "" {
 		return b
 	}
-	ok := false
-	for _, a := range b.allowedDiskTypes {
-		if strings.EqualFold(a, val) {
-			ok = true
-			break
-		}
-	}
-	if !ok {
+	if !containsFold(b.allowedDiskTypes, val) {
 		b.errs = append(b.errs, fmt.Sprintf("disk_type: %q is invalid, must be one of: %s", val, strings.Join(b.allowedDiskTypes, ", ")))
 	}
 	return b
+}
+
+// containsFold reports whether val is present in list, case-insensitively.
+func containsFold(list []string, val string) bool {
+	for _, item := range list {
+		if strings.EqualFold(item, val) {
+			return true
+		}
+	}
+	return false
 }
 
 func (b *GetServersRequestBuilder) WithStorageMin() *GetServersRequestBuilder {
