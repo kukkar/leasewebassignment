@@ -104,7 +104,7 @@ internal/tests/                  end-to-end HTTP tests (see internal/tests/doc.g
 web/                           static filter UI served at /ui/
 docs/api.md                    REST API reference for consumers
 postman/                       Postman collection
-todo.md                        staff-level improvement backlog with rationale for each item
+backlog with rationale for each item
 ```
 
 ## Logging & observability
