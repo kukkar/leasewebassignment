@@ -1,0 +1,21 @@
+# Assignment and workspace-specific files
+servers_filters_assignment.csv
+storagesolution.md
+test.md
+phases.md
+todo.md
+Assessment-backend27.docx
+
+# OS files
+.DS_Store
+
+# Go build outputs
+/bin/
+/pkg/
+
+# Runtime artifacts written by the running server, not source
+data/uploads/
+
+# Editor temp files
+*.swp
+*~

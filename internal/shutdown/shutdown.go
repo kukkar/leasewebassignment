@@ -1,3 +1,6 @@
+// Package shutdown provides small, dependency-free helpers for graceful
+// process shutdown: waiting for a termination signal and running a
+// bounded-timeout shutdown function against it.
 package shutdown
 
 import (
