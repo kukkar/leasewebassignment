@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Server Catalog</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f6f7f9;
+        --panel: #ffffff;
+        --border: #dde1e6;
+        --text: #1a1d22;
+        --muted: #5b6472;
+        --accent: #2f6fed;
+        --accent-contrast: #ffffff;
+        --row-hover: #f0f4ff;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #14161a;
+          --panel: #1d2025;
+          --border: #2b2f36;
+          --text: #e7e9ec;
+          --muted: #9aa3af;
+          --accent: #5b8cff;
+          --accent-contrast: #0b0d10;
+          --row-hover: #23283a;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+      header {
+        padding: 20px 24px 4px;
+      }
+      header h1 { margin: 0 0 4px; font-size: 1.4rem; }
+      header p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+      .layout {
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        gap: 20px;
+        padding: 20px 24px 40px;
+        align-items: start;
+      }
+      @media (max-width: 800px) {
+        .layout { grid-template-columns: 1fr; }
+      }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 16px;
+      }
+      fieldset {
+        border: none;
+        margin: 0 0 18px;
+        padding: 0;
+      }
+      fieldset legend {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+        margin-bottom: 8px;
+        padding: 0;
+      }
+      input[type="text"], select {
+        width: 100%;
+        padding: 8px 10px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--text);
+        font-size: 0.9rem;
+      }
+      .checkbox-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px 10px;
+      }
+      .checkbox-grid label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.85rem;
+        cursor: pointer;
+      }
+      .range-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.8rem;
+        color: var(--muted);
+        margin-bottom: 2px;
+      }
+      input[type="range"] { width: 100%; accent-color: var(--accent); }
+      .range-block { margin-bottom: 12px; }
+      button {
+        cursor: pointer;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        padding: 8px 14px;
+        font-size: 0.85rem;
+        background: var(--panel);
+        color: var(--text);
+      }
+      button.primary {
+        background: var(--accent);
+        color: var(--accent-contrast);
+        border-color: var(--accent);
+        font-weight: 600;
+      }
+      .actions { display: flex; gap: 8px; margin-top: 4px; }
+      #summary {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+      table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+      th, td {
+        text-align: left;
+        padding: 9px 10px;
+        border-bottom: 1px solid var(--border);
+      }
+      th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; }
+      tbody tr:hover { background: var(--row-hover); }
+      td.price { text-align: right; font-variant-numeric: tabular-nums; }
+      .table-scroll { overflow-x: auto; }
+      #error-banner {
+        display: none;
+        background: #fdeceb;
+        color: #8a1f11;
+        border: 1px solid #f3b4ab;
+        border-radius: 8px;
+        padding: 10px 14px;
+        margin-bottom: 12px;
+        font-size: 0.85rem;
+      }
+      @media (prefers-color-scheme: dark) {
+        #error-banner { background: #3a1c17; color: #ff9c8b; border-color: #5c2a20; }
+      }
+      #empty-state { padding: 24px; text-align: center; color: var(--muted); }
+      #pagination {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        margin-top: 14px;
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+      #pagination button:disabled { opacity: 0.4; cursor: default; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Server Catalog</h1>
+      <p>Filters call <code>GET /v1/servers</code> directly - no client-side filtering.</p>
+    </header>
+
+    <div class="layout">
+      <form class="panel" id="filters">
+        <fieldset>
+          <legend>Model</legend>
+          <input type="text" id="f-model" name="model" placeholder="e.g. Dell R730" autocomplete="off" />
+        </fieldset>
+
+        <fieldset>
+          <legend>RAM</legend>
+          <div class="checkbox-grid" id="f-ram"></div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Storage range</legend>
+          <div class="range-block">
+            <div class="range-row"><span>Min</span><span id="f-storage-min-label"></span></div>
+            <input type="range" id="f-storage-min" min="0" step="1" />
+          </div>
+          <div class="range-block">
+            <div class="range-row"><span>Max</span><span id="f-storage-max-label"></span></div>
+            <input type="range" id="f-storage-max" min="0" step="1" />
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Harddisk type</legend>
+          <select id="f-disktype">
+            <option value="">Any</option>
+            <option value="SAS">SAS</option>
+            <option value="SATA">SATA</option>
+            <option value="SSD">SSD</option>
+          </select>
+        </fieldset>
+
+        <fieldset>
+          <legend>Location</legend>
+          <select id="f-location">
+            <option value="">Any</option>
+          </select>
+        </fieldset>
+
+        <div class="actions">
+          <button type="submit" class="primary">Apply</button>
+          <button type="button" id="f-reset">Reset</button>
+        </div>
+      </form>
+
+      <main class="panel">
+        <div id="error-banner"></div>
+        <div id="summary">
+          <span id="summary-text">Loading…</span>
+        </div>
+        <div class="table-scroll">
+          <table id="results-table">
+            <thead>
+              <tr>
+                <th>Model</th>
+                <th>RAM</th>
+                <th>HDD</th>
+                <th>Location</th>
+                <th class="price">Price</th>
+              </tr>
+            </thead>
+            <tbody id="results-body"></tbody>
+          </table>
+        </div>
+        <div id="empty-state" hidden>No servers match the selected filters.</div>
+        <div id="pagination">
+          <button type="button" id="page-prev">&larr; Prev</button>
+          <span id="page-label"></span>
+          <button type="button" id="page-next">Next &rarr;</button>
+        </div>
+      </main>
+    </div>
+
+    <script>
+      // Mirrors internal/server/handlers/handlers.go's default allowed values.
+      // There's no discovery endpoint for allowed filter values today; if the
+      // backend config overrides them, this list needs updating to match.
+      const RAM_OPTIONS = ["2GB", "4GB", "8GB", "12GB", "16GB", "24GB", "32GB", "48GB", "64GB", "96GB"];
+
+      // Mirrors the assignment's spec sheet storage range-slider breakpoints.
+      const STORAGE_BREAKPOINTS = ["0", "250GB", "500GB", "1TB", "2TB", "3TB", "4TB", "8TB", "12TB", "24TB", "48TB", "72TB"];
+
+      // Matches only the trailing ALL-CAPS airport code (e.g. "AMS-01"), not
+      // lowercase city-name characters immediately before it - city names are
+      // glued directly onto the code with no separator (e.g. "AmsterdamAMS-01").
+      const LOCATION_CODE_RE = /\s*[A-Z]{2,4}-\d{2,3}$/;
+
+      // Matches the backend's default page size (see
+      // internal/server/handlers/filter.go's DefaultLimit).
+      const PAGE_SIZE = 50;
+
+      const state = {
+        model: "", ram: new Set(), storageMinIdx: 0, storageMaxIdx: STORAGE_BREAKPOINTS.length - 1,
+        diskType: "", location: "", offset: 0,
+      };
+
+      const els = {
+        model: document.getElementById("f-model"),
+        ramGrid: document.getElementById("f-ram"),
+        storageMin: document.getElementById("f-storage-min"),
+        storageMax: document.getElementById("f-storage-max"),
+        storageMinLabel: document.getElementById("f-storage-min-label"),
+        storageMaxLabel: document.getElementById("f-storage-max-label"),
+        diskType: document.getElementById("f-disktype"),
+        location: document.getElementById("f-location"),
+        form: document.getElementById("filters"),
+        reset: document.getElementById("f-reset"),
+        errorBanner: document.getElementById("error-banner"),
+        summaryText: document.getElementById("summary-text"),
+        tbody: document.getElementById("results-body"),
+        table: document.getElementById("results-table"),
+        emptyState: document.getElementById("empty-state"),
+        pagePrev: document.getElementById("page-prev"),
+        pageNext: document.getElementById("page-next"),
+        pageLabel: document.getElementById("page-label"),
+      };
+
+      function extractCity(location) {
+        return location.replace(LOCATION_CODE_RE, "").trim() || location;
+      }
+
+      function buildRamCheckboxes() {
+        const frag = document.createDocumentFragment();
+        for (const value of RAM_OPTIONS) {
+          const label = document.createElement("label");
+          const input = document.createElement("input");
+          input.type = "checkbox";
+          input.value = value;
+          input.addEventListener("change", () => {
+            if (input.checked) state.ram.add(value);
+            else state.ram.delete(value);
+            resetToFirstPage();
+            fetchAndRender();
+          });
+          label.appendChild(input);
+          label.appendChild(document.createTextNode(value));
+          frag.appendChild(label);
+        }
+        els.ramGrid.appendChild(frag);
+      }
+
+      function initStorageSliders() {
+        els.storageMin.max = String(STORAGE_BREAKPOINTS.length - 1);
+        els.storageMax.max = String(STORAGE_BREAKPOINTS.length - 1);
+        els.storageMin.value = "0";
+        els.storageMax.value = String(STORAGE_BREAKPOINTS.length - 1);
+        updateStorageLabels();
+      }
+
+      function updateStorageLabels() {
+        els.storageMinLabel.textContent = STORAGE_BREAKPOINTS[state.storageMinIdx];
+        els.storageMaxLabel.textContent = STORAGE_BREAKPOINTS[state.storageMaxIdx];
+      }
+
+      function debounce(fn, delayMs) {
+        let handle;
+        return (...args) => {
+          clearTimeout(handle);
+          handle = setTimeout(() => fn(...args), delayMs);
+        };
+      }
+
+      function buildQuery() {
+        const params = new URLSearchParams();
+        if (state.model.trim()) params.set("model", state.model.trim());
+        for (const ram of state.ram) params.append("ram", ram);
+        if (state.storageMinIdx > 0) params.set("storage_min", STORAGE_BREAKPOINTS[state.storageMinIdx]);
+        if (state.storageMaxIdx < STORAGE_BREAKPOINTS.length - 1) params.set("storage_max", STORAGE_BREAKPOINTS[state.storageMaxIdx]);
+        if (state.diskType) params.set("disk_type", state.diskType);
+        if (state.location) params.set("location", state.location);
+        params.set("limit", String(PAGE_SIZE));
+        params.set("offset", String(state.offset));
+        return params.toString();
+      }
+
+      // Any change to what's being filtered invalidates the current page -
+      // without this, changing a filter while on page 3 could silently
+      // request an offset past the end of the new, smaller result set.
+      function resetToFirstPage() {
+        state.offset = 0;
+      }
+
+      function showError(message) {
+        els.errorBanner.textContent = message;
+        els.errorBanner.style.display = "block";
+      }
+
+      function clearError() {
+        els.errorBanner.style.display = "none";
+      }
+
+      function renderRows(servers) {
+        const frag = document.createDocumentFragment();
+        for (const s of servers) {
+          const tr = document.createElement("tr");
+          tr.innerHTML =
+            "<td></td><td></td><td></td><td></td><td class=\"price\"></td>";
+          const cells = tr.children;
+          cells[0].textContent = s.model;
+          cells[1].textContent = s.ram;
+          cells[2].textContent = s.hdd;
+          cells[3].textContent = s.location;
+          cells[4].textContent = s.price.toFixed(2);
+          frag.appendChild(tr);
+        }
+        els.tbody.replaceChildren(frag);
+      }
+
+      let requestSeq = 0;
+      async function fetchAndRender() {
+        clearError();
+        const seq = ++requestSeq;
+        els.summaryText.textContent = "Loading…";
+        try {
+          const query = buildQuery();
+          const res = await fetch("/v1/servers" + (query ? "?" + query : ""));
+          if (seq !== requestSeq) return; // a newer request superseded this one
+          if (!res.ok) {
+            const body = await res.json().catch(() => null);
+            throw new Error(body && body.error ? body.error.message : "Request failed (" + res.status + ")");
+          }
+          const body = await res.json();
+          const servers = body.data || [];
+          const meta = body.meta || { total: servers.length, limit: PAGE_SIZE, offset: state.offset };
+          renderRows(servers);
+          els.table.hidden = servers.length === 0;
+          els.emptyState.hidden = servers.length !== 0;
+          els.summaryText.textContent = meta.total + " server" + (meta.total === 1 ? "" : "s");
+          updatePaginationControls(meta);
+        } catch (err) {
+          if (seq !== requestSeq) return;
+          showError(err.message || "Failed to load servers");
+          els.summaryText.textContent = "—";
+        }
+      }
+
+      function updatePaginationControls(meta) {
+        const shown = Math.min(meta.offset + meta.limit, meta.total);
+        const from = meta.total === 0 ? 0 : meta.offset + 1;
+        els.pageLabel.textContent = from + "–" + shown + " of " + meta.total;
+        els.pagePrev.disabled = meta.offset <= 0;
+        els.pageNext.disabled = shown >= meta.total;
+      }
+
+      // The server caps every response at MaxLimit (200) - see
+      // internal/server/handlers/filter.go - so a catalog bigger than that
+      // (486 rows today) can never be seen in one request. Page through
+      // every result to build the location dropdown, capped at a generous
+      // number of round trips so a runaway total can't spin this forever.
+      const LOCATION_SCAN_LIMIT = 200;
+      const LOCATION_SCAN_MAX_PAGES = 25;
+
+      async function populateLocations() {
+        try {
+          const cities = new Set();
+          let offset = 0;
+          for (let page = 0; page < LOCATION_SCAN_MAX_PAGES; page++) {
+            const res = await fetch("/v1/servers?limit=" + LOCATION_SCAN_LIMIT + "&offset=" + offset);
+            if (!res.ok) break;
+            const body = await res.json();
+            for (const s of body.data || []) cities.add(extractCity(s.location));
+            const meta = body.meta;
+            offset += LOCATION_SCAN_LIMIT;
+            if (!meta || offset >= meta.total) break;
+          }
+          const frag = document.createDocumentFragment();
+          for (const city of Array.from(cities).sort()) {
+            const opt = document.createElement("option");
+            opt.value = city;
+            opt.textContent = city;
+            frag.appendChild(opt);
+          }
+          els.location.appendChild(frag);
+        } catch {
+          // Location dropdown just stays at "Any" if this fails; the rest of
+          // the UI still works since location isn't otherwise required.
+        }
+      }
+
+      const debouncedFetch = debounce(() => { resetToFirstPage(); fetchAndRender(); }, 300);
+
+      els.model.addEventListener("input", () => {
+        state.model = els.model.value;
+        debouncedFetch();
+      });
+      els.storageMin.addEventListener("input", () => {
+        const idx = Math.min(Number(els.storageMin.value), state.storageMaxIdx);
+        els.storageMin.value = String(idx);
+        state.storageMinIdx = idx;
+        updateStorageLabels();
+      });
+      els.storageMin.addEventListener("change", () => { resetToFirstPage(); fetchAndRender(); });
+      els.storageMax.addEventListener("input", () => {
+        const idx = Math.max(Number(els.storageMax.value), state.storageMinIdx);
+        els.storageMax.value = String(idx);
+        state.storageMaxIdx = idx;
+        updateStorageLabels();
+      });
+      els.storageMax.addEventListener("change", () => { resetToFirstPage(); fetchAndRender(); });
+      els.diskType.addEventListener("change", () => {
+        state.diskType = els.diskType.value;
+        resetToFirstPage();
+        fetchAndRender();
+      });
+      els.location.addEventListener("change", () => {
+        state.location = els.location.value;
+        resetToFirstPage();
+        fetchAndRender();
+      });
+      els.form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        resetToFirstPage();
+        fetchAndRender();
+      });
+      els.reset.addEventListener("click", () => {
+        state.model = "";
+        state.ram.clear();
+        state.storageMinIdx = 0;
+        state.storageMaxIdx = STORAGE_BREAKPOINTS.length - 1;
+        state.diskType = "";
+        state.location = "";
+        state.offset = 0;
+        els.model.value = "";
+        els.ramGrid.querySelectorAll("input[type=checkbox]").forEach((cb) => (cb.checked = false));
+        els.diskType.value = "";
+        els.location.value = "";
+        initStorageSliders();
+        fetchAndRender();
+      });
+      els.pagePrev.addEventListener("click", () => {
+        state.offset = Math.max(0, state.offset - PAGE_SIZE);
+        fetchAndRender();
+      });
+      els.pageNext.addEventListener("click", () => {
+        state.offset += PAGE_SIZE;
+        fetchAndRender();
+      });
+
+      buildRamCheckboxes();
+      initStorageSliders();
+      populateLocations();
+      fetchAndRender();
+    </script>
+  </body>
+</html>

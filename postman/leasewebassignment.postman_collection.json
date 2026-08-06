@@ -1,13 +1,13 @@
 {
   "info": {
     "name": "Leaseweb Assignment API",
-    "description": "Collection for the Leaseweb Assignment server API.",
+    "description": "Collection for the Leaseweb Assignment server API (v1).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "version": "1.0.0"
+    "version": "2.0.0"
   },
   "item": [
     {
-      "name": "Get Servers",
+      "name": "Get Servers (filtered, first page)",
       "request": {
         "method": "GET",
         "header": [
@@ -17,38 +17,47 @@
           }
         ],
         "url": {
-          "raw": "{{base_url}}/servers?model=AMD%20EPYC&ram=32GB&hdd=4x1TB&location=Amsterdam&price_min=50&price_max=200",
+          "raw": "{{base_url}}/v1/servers?model=Dell&ram=16GB&ram=32GB&disk_type=SATA&location=Amsterdam&storage_min=500GB&storage_max=2TB&limit=50&offset=0",
           "host": [
             "{{base_url}}"
           ],
           "path": [
+            "v1",
             "servers"
           ],
           "query": [
-            {
-              "key": "model",
-              "value": "AMD EPYC"
-            },
-            {
-              "key": "ram",
-              "value": "32GB"
-            },
-            {
-              "key": "hdd",
-              "value": "4x1TB"
-            },
-            {
-              "key": "location",
-              "value": "Amsterdam"
-            },
-            {
-              "key": "price_min",
-              "value": "50"
-            },
-            {
-              "key": "price_max",
-              "value": "200"
-            }
+            { "key": "model", "value": "Dell" },
+            { "key": "ram", "value": "16GB", "description": "repeat this param for multi-select, e.g. ram=16GB&ram=32GB" },
+            { "key": "ram", "value": "32GB" },
+            { "key": "disk_type", "value": "SATA" },
+            { "key": "location", "value": "Amsterdam" },
+            { "key": "storage_min", "value": "500GB" },
+            { "key": "storage_max", "value": "2TB" },
+            { "key": "limit", "value": "50" },
+            { "key": "offset", "value": "0" }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get Servers (no filters)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/v1/servers",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "v1",
+            "servers"
           ]
         }
       },
@@ -61,7 +70,7 @@
         "header": [
           {
             "key": "Authorization",
-            "value": "Bearer {{jwt_token}}"
+            "value": "Bearer {{admin_token}}"
           }
         ],
         "body": {
@@ -75,13 +84,46 @@
           ]
         },
         "url": {
-          "raw": "{{base_url}}/admin/upload",
+          "raw": "{{base_url}}/v1/admin/upload",
           "host": [
             "{{base_url}}"
           ],
           "path": [
+            "v1",
             "admin",
             "upload"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Health check",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/healthz",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "healthz"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Readiness check",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/readyz",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "readyz"
           ]
         }
       },
@@ -94,8 +136,8 @@
       "value": "http://localhost:8080"
     },
     {
-      "key": "jwt_token",
-      "value": "your-jwt-token"
+      "key": "admin_token",
+      "value": "your-admin-token"
     }
   ]
 }
