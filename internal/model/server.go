@@ -1,3 +1,9 @@
+// Package model holds the domain types (Server, ServerFilter) and the
+// parsing/normalization functions for the source CSV's field formats -
+// price ("€49.99"), RAM ("16GBDDR3"), and HDD ("2x2TBSATA2"). Values here
+// carry a technology/generation suffix the filter API doesn't use directly
+// (RAMFamily, NormalizeDiskType), so parsing and filter-family extraction
+// are kept as distinct steps rather than collapsed into one.
 package model
 
 import (
@@ -8,8 +14,9 @@ import (
 )
 
 var (
-	ramPattern = regexp.MustCompile(`^(\d+)(GB)$`)
-	hddPattern = regexp.MustCompile(`^(\d+)x(\d+)(GB|TB)([A-Za-z0-9]+)$`)
+	ramPattern       = regexp.MustCompile(`^(\d+)(GB)$`)
+	hddPattern       = regexp.MustCompile(`^(\d+)x(\d+)(GB|TB)([A-Za-z0-9]+)$`)
+	ramFamilyPattern = regexp.MustCompile(`(?i)^\s*(\d+GB)`)
 )
 
 // Server represents a server catalog entry.
@@ -22,9 +29,12 @@ type Server struct {
 }
 
 // ServerFilter defines allowed filter criteria.
+// RAM is a slice because the assignment's filter spec models RAM as a
+// checkbox group (multi-select): a server matches if its RAM equals ANY of
+// the selected values. All other fields are single-value AND filters.
 type ServerFilter struct {
 	Model      string
-	RAM        string
+	RAM        []string
 	Location   string
 	DiskType   string
 	StorageMin *int
@@ -89,12 +99,37 @@ func ParseHDD(value string) (int, string, error) {
 		return 0, "", err
 	}
 	unit := matches[3]
-	diskType := matches[4]
 	total := count * size
 	if strings.EqualFold(unit, "TB") {
 		total = total * 1024
 	}
-	return total, diskType, nil
+	return total, NormalizeDiskType(matches[4]), nil
+}
+
+// diskTypeGenerationSuffix matches a trailing generation/revision number on a
+// disk type label, e.g. the "2" in "SATA2".
+var diskTypeGenerationSuffix = regexp.MustCompile(`\d+$`)
+
+// NormalizeDiskType maps a raw disk type label parsed from the HDD column
+// (e.g. "SATA2", "SATA3") to the disk type family used by the filter API
+// (e.g. "SATA"). The source dataset labels drives with a generation suffix,
+// but the assignment's own filter spec only exposes SAS/SATA/SSD as filter
+// values, so labels must collapse to that family for `disk_type` to ever match.
+func NormalizeDiskType(raw string) string {
+	return diskTypeGenerationSuffix.ReplaceAllString(strings.ToUpper(strings.TrimSpace(raw)), "")
+}
+
+// RAMFamily extracts the "<digits>GB" family from a raw RAM label for
+// filter comparison purposes. Like disk type, the source data appends a
+// memory technology suffix directly onto the value with no separator (e.g.
+// "16GBDDR3", "128GBDDR4"), which the assignment's RAM checkbox values
+// (plain "16GB") would never equal under exact comparison. Falls back to the
+// upper-cased, trimmed input if no leading "<digits>GB" is found.
+func RAMFamily(raw string) string {
+	if m := ramFamilyPattern.FindStringSubmatch(raw); m != nil {
+		return strings.ToUpper(m[1])
+	}
+	return strings.ToUpper(strings.TrimSpace(raw))
 }
 
 func ParseStorageValue(value string) (int, error) {

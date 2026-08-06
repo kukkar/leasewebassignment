@@ -1,11 +1,13 @@
+// Package store holds the server repository: the in-memory catalog and the
+// filter-evaluation logic used to narrow it. Filtering is optimized around a
+// simple invariant - the catalog only changes via ReplaceServers, so every
+// value a filter needs (total storage, disk type family, RAM family) is
+// parsed once there and cached, never re-derived on the read path.
 package store
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 	"strings"
-	"sync"
 
 	"github.com/sahil/leasewebassignment/internal/model"
 )
@@ -16,105 +18,95 @@ type Repository interface {
 	SaveUpload(ctx context.Context, filename string, content []byte) (string, error)
 }
 
-type InMemoryRepository struct {
-	mu        sync.RWMutex
-	servers   []model.Server
-	uploadDir string
+// indexedServer pairs a raw catalog record with the values filtering needs,
+// computed once when the record is ingested rather than on every read. It's
+// deliberately unexported - nothing outside this package ever sees it, so
+// these derived fields can never leak into the JSON API contract.
+type indexedServer struct {
+	server         model.Server
+	totalStorageGB int
+	diskType       string
+	ramFamily      string
 }
 
-func NewInMemoryRepository(uploadDir string) *InMemoryRepository {
-	if uploadDir == "" {
-		uploadDir = filepath.Join("data", "uploads")
+// newIndexedServer parses the fields matchesFilter needs exactly once. This
+// is the only place in a request's lifecycle that regex parsing happens -
+// ListServers, called on every request, never parses anything.
+func newIndexedServer(s model.Server) indexedServer {
+	idx := indexedServer{server: s, ramFamily: model.RAMFamily(s.RAM)}
+	if s.HDD != "" {
+		if totalGB, diskType, err := model.ParseHDD(s.HDD); err == nil {
+			idx.totalStorageGB = totalGB
+			idx.diskType = diskType
+		}
 	}
-	return &InMemoryRepository{uploadDir: uploadDir}
+	return idx
 }
 
-func (r *InMemoryRepository) ListServers(ctx context.Context, filter model.ServerFilter) ([]model.Server, error) {
-	if r == nil {
-		return nil, &StoreError{Op: "list", Err: ErrRepositoryUninitialized}
-	}
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	result := make([]model.Server, 0, len(r.servers))
-	for _, s := range r.servers {
-		if filter.Model != "" && !stringMatches(s.Model, filter.Model) {
-			continue
-		}
-		if filter.RAM != "" && !stringMatches(s.RAM, filter.RAM) {
-			continue
-		}
-		// free-text HDD filter removed; rely on storage and disk-type filters
-		// parse HDD to support storage range and disk-type filtering
-		totalGB := 0
-		diskType := ""
-		if s.HDD != "" {
-			if tb, dt, err := model.ParseHDD(s.HDD); err == nil {
-				totalGB = tb
-				diskType = dt
-			}
-		}
-		if filter.Location != "" && !stringMatches(s.Location, filter.Location) {
-			continue
-		}
-		if filter.DiskType != "" && !strings.EqualFold(filter.DiskType, diskType) {
-			continue
-		}
-		if filter.StorageMin != nil && totalGB < *filter.StorageMin {
-			continue
-		}
-		if filter.StorageMax != nil && totalGB > *filter.StorageMax {
-			continue
-		}
-		result = append(result, s)
-	}
-	return result, nil
+// preparedFilter is model.ServerFilter with its RAM values normalized once
+// per request (via model.RAMFamily), rather than once per server compared -
+// the filter's own values don't change while scanning the catalog.
+type preparedFilter struct {
+	model       string
+	location    string
+	diskType    string
+	ramFamilies []string
+	storageMin  *int
+	storageMax  *int
 }
 
-func (r *InMemoryRepository) ReplaceServers(ctx context.Context, servers []model.Server) error {
-	if r == nil {
-		return &StoreError{Op: "replace", Err: ErrRepositoryUninitialized}
+func prepareFilter(f model.ServerFilter) preparedFilter {
+	families := make([]string, len(f.RAM))
+	for i, ram := range f.RAM {
+		families[i] = model.RAMFamily(ram)
 	}
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.servers = append([]model.Server(nil), servers...)
-	return nil
+	return preparedFilter{
+		model:       f.Model,
+		location:    f.Location,
+		diskType:    f.DiskType,
+		ramFamilies: families,
+		storageMin:  f.StorageMin,
+		storageMax:  f.StorageMax,
+	}
+}
+
+// matchesFilter is the single filter-evaluation implementation shared by
+// every Repository, so backends can never drift in what "matches the
+// filter" means. It only ever compares precomputed fields - no parsing.
+func matchesFilter(idx indexedServer, filter preparedFilter) bool {
+	s := idx.server
+	if filter.model != "" && !stringMatches(s.Model, filter.model) {
+		return false
+	}
+	if len(filter.ramFamilies) > 0 && !containsString(filter.ramFamilies, idx.ramFamily) {
+		return false
+	}
+	if filter.location != "" && !stringMatches(s.Location, filter.location) {
+		return false
+	}
+	if filter.diskType != "" && !strings.EqualFold(filter.diskType, idx.diskType) {
+		return false
+	}
+	if filter.storageMin != nil && idx.totalStorageGB < *filter.storageMin {
+		return false
+	}
+	if filter.storageMax != nil && idx.totalStorageGB > *filter.storageMax {
+		return false
+	}
+	return true
+}
+
+func containsString(values []string, want string) bool {
+	for _, v := range values {
+		if v == want {
+			return true
+		}
+	}
+	return false
 }
 
 func stringMatches(value, filter string) bool {
 	value = strings.ToLower(strings.TrimSpace(value))
 	filter = strings.ToLower(strings.TrimSpace(filter))
 	return strings.Contains(value, filter)
-}
-
-func (r *InMemoryRepository) SaveUpload(ctx context.Context, filename string, content []byte) (string, error) {
-	if r == nil {
-		return "", &StoreError{Op: "save_upload", Err: ErrRepositoryUninitialized}
-	}
-	if filename == "" {
-		return "", &StoreError{Op: "save_upload", Err: ErrSourcePathRequired}
-	}
-	if err := os.MkdirAll(r.uploadDir, 0o755); err != nil {
-		return "", &StoreError{Op: "save_upload", Err: err}
-	}
-	finalName := filepath.Base(filename)
-	tmpFile, err := os.CreateTemp(r.uploadDir, finalName+"-*.tmp")
-	if err != nil {
-		return "", &StoreError{Op: "save_upload", Err: err}
-	}
-	defer tmpFile.Close()
-	if _, err = tmpFile.Write(content); err != nil {
-		os.Remove(tmpFile.Name())
-		return "", &StoreError{Op: "save_upload", Err: err}
-	}
-	if err = tmpFile.Sync(); err != nil {
-		os.Remove(tmpFile.Name())
-		return "", &StoreError{Op: "save_upload", Err: err}
-	}
-	finalPath := filepath.Join(r.uploadDir, finalName)
-	if err = os.Rename(tmpFile.Name(), finalPath); err != nil {
-		os.Remove(tmpFile.Name())
-		return "", &StoreError{Op: "save_upload", Err: err}
-	}
-	return finalPath, nil
 }

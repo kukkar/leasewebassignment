@@ -2,72 +2,20 @@ package store
 
 import (
 	"context"
-	"encoding/csv"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/sahil/leasewebassignment/internal/model"
+	"github.com/sahil/leasewebassignment/internal/testutil"
 )
 
-func TestListServersFilterFromCSV(t *testing.T) {
-	// Try several candidate locations for the sample CSV.
-	candidates := []string{
-		filepath.Join("data", "servers.csv"),
-		filepath.Join("..", "data", "servers.csv"),
-		filepath.Join("..", "..", "data", "servers.csv"),
-		"/Users/sahil/GolandProjects/leasewebassignment/data/servers.csv",
-	}
-	var data []byte
-	var err error
-	var found string
-	for _, p := range candidates {
-		data, err = os.ReadFile(p)
-		if err == nil {
-			found = p
-			break
-		}
-	}
-	if found == "" {
-		t.Skipf("missing sample data file in candidates: %v", candidates)
-	}
-
-	r := csv.NewReader(strings.NewReader(string(data)))
-	rows, err := r.ReadAll()
-	if err != nil {
-		t.Fatalf("failed to read csv: %v", err)
-	}
-	if len(rows) < 1 {
-		t.Fatal("empty csv")
-	}
-	// headers may be present; try to detect header row
-	start := 0
-	headers := rows[0]
-	if len(headers) >= 5 && strings.EqualFold(strings.TrimSpace(headers[0]), "Model") {
-		start = 1
-	}
-
-	parsed := make([]model.Server, 0, len(rows)-start)
-	for i, row := range rows[start:] {
-		if len(row) < 5 {
-			continue
-		}
-		price, err := model.ParsePrice(row[4])
-		if err != nil {
-			t.Fatalf("parse price row %d: %v", i+start+1, err)
-		}
-		parsed = append(parsed, model.Server{
-			Model:    strings.TrimSpace(row[0]),
-			RAM:      strings.TrimSpace(row[1]),
-			HDD:      strings.TrimSpace(row[2]),
-			Location: strings.TrimSpace(row[3]),
-			Price:    price,
-		})
-	}
-
-	repo := NewInMemoryRepository(filepath.Join(t.TempDir(), "uploads"))
-	if err := repo.ReplaceServers(context.Background(), parsed); err != nil {
+// TestListServersFilterFromFixture exercises the repository filter logic
+// against the shared deterministic fixture (see internal/testutil) rather
+// than a data file that can change independently of the test's expectations.
+func TestListServersFilterFromFixture(t *testing.T) {
+	repo := NewRepository(RepositoryConfig{UploadDir: filepath.Join(t.TempDir(), "uploads")})
+	if err := repo.ReplaceServers(context.Background(), testutil.SampleServers); err != nil {
 		t.Fatal(err)
 	}
 
@@ -76,25 +24,62 @@ func TestListServersFilterFromCSV(t *testing.T) {
 		filter  model.ServerFilter
 		matcher func(s model.Server) bool
 	}{
-		{"filter ram 4GB", model.ServerFilter{RAM: "4GB"}, func(s model.Server) bool { return strings.Contains(strings.ToLower(s.RAM), "4gb") }},
-		{"filter location Washington", model.ServerFilter{Location: "Washington"}, func(s model.Server) bool { return strings.Contains(strings.ToLower(s.Location), "washington") }},
+		// RAM is a checkbox filter: matching is by RAM family (case-insensitive,
+		// suffix-tolerant), not substring - "4GB" must not also match "64GBDDR3".
+		{"filter ram 4GB", model.ServerFilter{RAM: []string{"4GB"}}, func(s model.Server) bool { return model.RAMFamily(s.RAM) == "4GB" }},
+		{"filter location Washington", model.ServerFilter{Location: "Washington"}, func(s model.Server) bool {
+			return strings.Contains(strings.ToLower(s.Location), "washington")
+		}},
 	}
 
 	for _, tc := range tests {
-		// compute expected from parsed data
-		want := 0
-		for _, s := range parsed {
-			if tc.matcher(s) {
-				want++
+		t.Run(tc.name, func(t *testing.T) {
+			want := 0
+			for _, s := range testutil.SampleServers {
+				if tc.matcher(s) {
+					want++
+				}
 			}
-		}
 
-		got, err := repo.ListServers(context.Background(), tc.filter)
-		if err != nil {
-			t.Fatalf("%s failed: %v", tc.name, err)
-		}
-		if len(got) != want {
-			t.Fatalf("%s expected %d results, got %d", tc.name, want, len(got))
-		}
+			got, err := repo.ListServers(context.Background(), tc.filter)
+			if err != nil {
+				t.Fatalf("%s failed: %v", tc.name, err)
+			}
+			if len(got) != want {
+				t.Fatalf("%s expected %d results, got %d", tc.name, want, len(got))
+			}
+		})
+	}
+}
+
+// TestListServersFilterDiskType locks in the disk_type acceptance criterion
+// against the assignment's SAS/SATA/SSD dropdown values. Expected counts are
+// hardcoded from the fixture's documented disk types (see internal/testutil)
+// rather than recomputed with model.ParseHDD, so a regression in ParseHDD's
+// normalization can't silently pass by producing a matching wrong answer.
+func TestListServersFilterDiskType(t *testing.T) {
+	repo := NewRepository(RepositoryConfig{UploadDir: filepath.Join(t.TempDir(), "uploads")})
+	if err := repo.ReplaceServers(context.Background(), testutil.SampleServers); err != nil {
+		t.Fatal(err)
+	}
+
+	cases := []struct {
+		diskType string
+		want     int
+	}{
+		{"SATA", 7}, // fixture rows labeled SATA2 must normalize to the SATA family
+		{"SSD", 2},
+		{"SAS", 1},
+	}
+	for _, tc := range cases {
+		t.Run(tc.diskType, func(t *testing.T) {
+			got, err := repo.ListServers(context.Background(), model.ServerFilter{DiskType: tc.diskType})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(got) != tc.want {
+				t.Fatalf("disk_type=%s: expected %d results, got %d", tc.diskType, tc.want, len(got))
+			}
+		})
 	}
 }

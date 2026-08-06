@@ -1,28 +1,16 @@
 package store
 
 // RepositoryConfig contains settings for repository initialization.
-// Providers can add additional fields for specific implementations.
 type RepositoryConfig struct {
+	// UploadDir is where uploaded CSV files are written for audit purposes.
 	UploadDir string
-	// Kind selects repository implementation: "memory" (default) or "file".
-	Kind string
 }
 
-// NewRepository creates a repository from the given config.
-// This function can be extended later to choose a different implementation.
+// NewRepository creates the server repository. The only backend today is an
+// in-memory store seeded from disk at startup (see service.LoadServerData);
+// there is no requirement in the assignment for state to survive a process
+// restart without that reload, so a persistent-storage backend was left out
+// rather than shipped unwired and untested.
 func NewRepository(cfg RepositoryConfig) Repository {
-	switch cfg.Kind {
-	case "", "memory":
-		return NewInMemoryRepository(cfg.UploadDir)
-	case "file":
-		return NewFileRepository(cfg.UploadDir)
-	default:
-		return NewInMemoryRepository(cfg.UploadDir)
-	}
-}
-
-// NewFileRepository currently returns an in-memory repository with a persisted upload directory.
-// This is a placeholder for a full file-backed repository implementation.
-func NewFileRepository(uploadDir string) Repository {
-	return NewInMemoryRepository(uploadDir)
+	return newMemoryRepository(cfg.UploadDir)
 }
