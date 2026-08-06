@@ -1,3 +1,16 @@
+// Package api defines the client-facing error vocabulary (APIError) and the
+// single translation function (MapError) that turns any layer's error -
+// store, service, or a raw stdlib error - into a consistent HTTP status and
+// JSON shape.
+//
+// It lives at the top level rather than nested under internal/server
+// deliberately: MapError already reaches into internal/service's error
+// types to translate them, and the intent is that any layer producing a
+// client-facing error can depend on this vocabulary without depending on
+// the HTTP transport package (internal/server) that happens to be the only
+// current consumer. If a second transport (e.g. a gRPC or CLI entry point)
+// is ever added, it can reuse this package the same way internal/server
+// does today.
 package api
 
 import (
@@ -10,13 +23,14 @@ import (
 )
 
 const (
-	CodeBadRequest       = "bad_request"
-	CodeInvalidInput     = "invalid_input"
-	CodeUnauthorized     = "unauthorized"
-	CodeNotFound         = "not_found"
-	CodeInternalError    = "internal_error"
-	CodeCSVValidation    = "csv_validation_error"
-	CodeMissingParameter = "missing_parameter"
+	CodeBadRequest         = "bad_request"
+	CodeInvalidInput       = "invalid_input"
+	CodeUnauthorized       = "unauthorized"
+	CodeNotFound           = "not_found"
+	CodeInternalError      = "internal_error"
+	CodeCSVValidation      = "csv_validation_error"
+	CodeMissingParameter   = "missing_parameter"
+	CodeServiceUnavailable = "service_unavailable"
 )
 
 type APIError struct {
@@ -67,6 +81,10 @@ func InternalError(message, details string) *APIError {
 
 func CSVValidationError(message, details string) *APIError {
 	return NewAPIError(CodeCSVValidation, message, http.StatusBadRequest, details)
+}
+
+func ServiceUnavailable(message, details string) *APIError {
+	return NewAPIError(CodeServiceUnavailable, message, http.StatusServiceUnavailable, details)
 }
 
 type ErrorResponse struct {

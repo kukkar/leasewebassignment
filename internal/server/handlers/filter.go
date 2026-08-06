@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/sahil/leasewebassignment/internal/api"
@@ -18,31 +19,41 @@ const (
 	QueryParamStorageMin = "storage_min"
 	QueryParamStorageMax = "storage_max"
 	QueryParamDiskType   = "disk_type"
+	QueryParamLimit      = "limit"
+	QueryParamOffset     = "offset"
+
+	DefaultLimit = 50
+	MaxLimit     = 200
 )
 
 type GetServersRequest struct {
-	Model    string `json:"model"`
-	RAM      string `json:"ram"`
-	Location string `json:"location"`
-	DiskType string `json:"disk_type,omitempty"`
+	Model    string   `json:"model"`
+	RAM      []string `json:"ram,omitempty"`
+	Location string   `json:"location"`
+	DiskType string   `json:"disk_type,omitempty"`
 	// storage values are expressed as GB units
 	StorageMin *int `json:"storage_min_gb,omitempty"`
 	StorageMax *int `json:"storage_max_gb,omitempty"`
+	Limit      int  `json:"limit"`
+	Offset     int  `json:"offset"`
 }
 
+// GetServersRequestBuilder validates query parameters into a
+// GetServersRequest. Every With* method runs regardless of whether an
+// earlier one failed, and Build() reports every problem found in a single
+// response - a caller with two invalid params fixes both on the next
+// request instead of rediscovering them one at a time.
 type GetServersRequestBuilder struct {
-	values  url.Values
-	request GetServersRequest
-	err     error
+	values           url.Values
+	request          GetServersRequest
+	errs             []string
+	allowedRAM       []string
+	allowedDiskTypes []string
 }
 
-var (
-	allowedRAM = []string{"2GB", "4GB", "8GB", "12GB", "16GB", "24GB", "32GB", "48GB", "64GB", "96GB"}
-	allowedHDD = []string{"SAS", "SATA", "SSD"}
-)
-
-func NewGetServersRequestBuilder(values url.Values) *GetServersRequestBuilder {
-	return &GetServersRequestBuilder{values: values}
+func NewGetServersRequestBuilder(values url.Values, allowedRAM, allowedDiskTypes []string) *GetServersRequestBuilder {
+	allowedRAM, allowedDiskTypes = withDefaults(allowedRAM, allowedDiskTypes)
+	return &GetServersRequestBuilder{values: values, allowedRAM: allowedRAM, allowedDiskTypes: allowedDiskTypes}
 }
 
 func (b *GetServersRequestBuilder) WithModel() *GetServersRequestBuilder {
@@ -50,20 +61,27 @@ func (b *GetServersRequestBuilder) WithModel() *GetServersRequestBuilder {
 	return b
 }
 
+// WithRAM reads all repeated `ram` query params (the RAM filter is a
+// checkbox group in the assignment's spec: a server matches if its RAM is
+// ANY of the selected values), validating each against the allowed list.
+// An invalid value is recorded and skipped; the rest are still processed.
 func (b *GetServersRequestBuilder) WithRAM() *GetServersRequestBuilder {
-	val := b.values.Get(QueryParamRAM)
-	b.request.RAM = val
-	if val != "" {
+	for _, val := range b.values[QueryParamRAM] {
+		if val == "" {
+			continue
+		}
 		ok := false
-		for _, a := range allowedRAM {
+		for _, a := range b.allowedRAM {
 			if strings.EqualFold(a, val) {
 				ok = true
 				break
 			}
 		}
 		if !ok {
-			b.err = api.InvalidInput("invalid ram value", fmt.Sprintf("ram must be one of: %s", strings.Join(allowedRAM, ", ")))
+			b.errs = append(b.errs, fmt.Sprintf("ram: %q is invalid, must be one of: %s", val, strings.Join(b.allowedRAM, ", ")))
+			continue
 		}
+		b.request.RAM = append(b.request.RAM, val)
 	}
 	return b
 }
@@ -76,53 +94,86 @@ func (b *GetServersRequestBuilder) WithLocation() *GetServersRequestBuilder {
 func (b *GetServersRequestBuilder) WithDiskType() *GetServersRequestBuilder {
 	val := b.values.Get(QueryParamDiskType)
 	b.request.DiskType = val
-	if val != "" {
-		ok := false
-		for _, a := range allowedHDD {
-			if strings.EqualFold(a, val) {
-				ok = true
-				break
-			}
+	if val == "" {
+		return b
+	}
+	ok := false
+	for _, a := range b.allowedDiskTypes {
+		if strings.EqualFold(a, val) {
+			ok = true
+			break
 		}
-		if !ok {
-			b.err = api.InvalidInput("invalid disk type", fmt.Sprintf("disk_type must be one of: %s", strings.Join(allowedHDD, ", ")))
-		}
+	}
+	if !ok {
+		b.errs = append(b.errs, fmt.Sprintf("disk_type: %q is invalid, must be one of: %s", val, strings.Join(b.allowedDiskTypes, ", ")))
 	}
 	return b
 }
 
 func (b *GetServersRequestBuilder) WithStorageMin() *GetServersRequestBuilder {
-	if b.err != nil {
+	value := b.values.Get(QueryParamStorageMin)
+	if value == "" {
 		return b
 	}
-	if value := b.values.Get(QueryParamStorageMin); value != "" {
-		parsed, err := model.ParseStorageValue(value)
-		if err != nil {
-			b.err = api.InvalidInput("invalid storage_min", err.Error())
-			return b
-		}
-		b.request.StorageMin = &parsed
+	parsed, err := model.ParseStorageValue(value)
+	if err != nil {
+		b.errs = append(b.errs, fmt.Sprintf("storage_min: %v", err))
+		return b
 	}
+	b.request.StorageMin = &parsed
 	return b
 }
 
 func (b *GetServersRequestBuilder) WithStorageMax() *GetServersRequestBuilder {
-	if b.err != nil {
+	value := b.values.Get(QueryParamStorageMax)
+	if value == "" {
 		return b
 	}
-	if value := b.values.Get(QueryParamStorageMax); value != "" {
-		parsed, err := model.ParseStorageValue(value)
-		if err != nil {
-			b.err = api.InvalidInput("invalid storage_max", err.Error())
-			return b
-		}
-		b.request.StorageMax = &parsed
+	parsed, err := model.ParseStorageValue(value)
+	if err != nil {
+		b.errs = append(b.errs, fmt.Sprintf("storage_max: %v", err))
+		return b
 	}
+	b.request.StorageMax = &parsed
+	return b
+}
+
+// WithPagination parses limit/offset, defaulting to DefaultLimit/0 and
+// capping limit at MaxLimit so a single request can't force the server to
+// marshal and transmit the entire catalog in one response.
+func (b *GetServersRequestBuilder) WithPagination() *GetServersRequestBuilder {
+	limit := DefaultLimit
+	if raw := b.values.Get(QueryParamLimit); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < 1 {
+			b.errs = append(b.errs, fmt.Sprintf("limit: %q must be a positive integer", raw))
+		} else if parsed > MaxLimit {
+			limit = MaxLimit
+		} else {
+			limit = parsed
+		}
+	}
+
+	offset := 0
+	if raw := b.values.Get(QueryParamOffset); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < 0 {
+			b.errs = append(b.errs, fmt.Sprintf("offset: %q must be a non-negative integer", raw))
+		} else {
+			offset = parsed
+		}
+	}
+
+	b.request.Limit = limit
+	b.request.Offset = offset
 	return b
 }
 
 func (b *GetServersRequestBuilder) Build() (GetServersRequest, error) {
-	return b.request, b.err
+	if len(b.errs) > 0 {
+		return GetServersRequest{}, api.InvalidInput("invalid query parameters", strings.Join(b.errs, "; "))
+	}
+	return b.request, nil
 }
 
 func (r GetServersRequest) ToFilter() model.ServerFilter {
