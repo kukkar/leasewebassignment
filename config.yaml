@@ -6,4 +6,8 @@ server:
 app:
   data_file: data/servers.csv
   upload_dir: data/uploads
-  jwt_signing_key: secret-key
+  # Demo placeholder credential for POST /v1/admin/upload - rotate this
+  # before any real deployment, this exact value is committed to the repo.
+  admin_token: secret-key
+  logging:
+    level: info
