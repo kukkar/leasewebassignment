@@ -12,10 +12,10 @@ import (
 	"time"
 
 	"github.com/sahil/leasewebassignment/internal/config"
-	applog "github.com/sahil/leasewebassignment/internal/log"
+	applog "github.com/sahil/leasewebassignment/internal/platform/log"
+	"github.com/sahil/leasewebassignment/internal/platform/shutdown"
 	internalServer "github.com/sahil/leasewebassignment/internal/server"
 	"github.com/sahil/leasewebassignment/internal/service"
-	"github.com/sahil/leasewebassignment/internal/shutdown"
 	"github.com/sahil/leasewebassignment/internal/store"
 	"go.uber.org/zap"
 )

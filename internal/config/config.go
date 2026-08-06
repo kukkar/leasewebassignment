@@ -34,7 +34,7 @@ type AppConfig struct {
 }
 
 // LoggingConfig.Level controls the minimum zap level the server logs at
-// (debug/info/warn/error, default info) - see internal/log.NewLogger.
+// (debug/info/warn/error, default info) - see internal/platform/log.NewLogger.
 type LoggingConfig struct {
 	Level string `json:"level" yaml:"level"`
 }

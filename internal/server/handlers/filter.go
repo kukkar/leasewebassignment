@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/sahil/leasewebassignment/internal/api"
 	"github.com/sahil/leasewebassignment/internal/model"
+	"github.com/sahil/leasewebassignment/internal/platform/httperr"
 )
 
 const (
@@ -167,7 +167,7 @@ func (b *GetServersRequestBuilder) WithPagination() *GetServersRequestBuilder {
 
 func (b *GetServersRequestBuilder) Build() (GetServersRequest, error) {
 	if len(b.errs) > 0 {
-		return GetServersRequest{}, api.InvalidInput("invalid query parameters", strings.Join(b.errs, "; "))
+		return GetServersRequest{}, httperr.InvalidInput("invalid query parameters", strings.Join(b.errs, "; "))
 	}
 	return b.request, nil
 }
@@ -188,18 +188,18 @@ type UploadServerRequest struct {
 	File     io.ReadCloser
 }
 
-func NewUploadServerRequest(r *http.Request) (*UploadServerRequest, *api.APIError) {
+func NewUploadServerRequest(r *http.Request) (*UploadServerRequest, *httperr.APIError) {
 	if err := r.ParseMultipartForm(10 << 20); err != nil {
-		return nil, api.InvalidInput("invalid multipart payload", err.Error())
+		return nil, httperr.InvalidInput("invalid multipart payload", err.Error())
 	}
 
 	file, header, err := r.FormFile("file")
 	if err != nil {
-		return nil, api.InvalidInput("missing file field", err.Error())
+		return nil, httperr.InvalidInput("missing file field", err.Error())
 	}
 	if header == nil || header.Filename == "" {
 		_ = file.Close()
-		return nil, api.InvalidInput("upload filename required", "form field 'file' must contain a filename")
+		return nil, httperr.InvalidInput("upload filename required", "form field 'file' must contain a filename")
 	}
 
 	return &UploadServerRequest{FileName: header.Filename, File: file}, nil

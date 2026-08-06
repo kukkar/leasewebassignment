@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/sahil/leasewebassignment/internal/api"
+	"github.com/sahil/leasewebassignment/internal/platform/httperr"
 )
 
 const bearerPrefix = "Bearer "
@@ -26,7 +27,7 @@ func (a *AuthMiddleware) Middleware(next http.Handler) http.Handler {
 		header := r.Header.Get("Authorization")
 		token, ok := strings.CutPrefix(header, bearerPrefix)
 		if !ok || a.authKey == "" || !constantTimeEquals(token, a.authKey) {
-			api.WriteError(w, api.Unauthorized("authorization required", "authorization header must be 'Bearer <token>' with a valid token"))
+			api.WriteError(w, httperr.Unauthorized("authorization required", "authorization header must be 'Bearer <token>' with a valid token"))
 			return
 		}
 		next.ServeHTTP(w, r)

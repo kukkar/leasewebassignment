@@ -7,6 +7,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/sahil/leasewebassignment/internal/api"
+	"github.com/sahil/leasewebassignment/internal/platform/httperr"
 )
 
 // NewRecoverMiddleware converts a panic in any handler into the API's
@@ -27,7 +28,7 @@ func NewRecoverMiddleware(logger *zap.SugaredLogger) func(http.Handler) http.Han
 							"stack", string(debug.Stack()),
 						)
 					}
-					api.WriteError(w, api.InternalError("internal server error", "unexpected error"))
+					api.WriteError(w, httperr.InternalError("internal server error", "unexpected error"))
 				}
 			}()
 			next.ServeHTTP(w, r)

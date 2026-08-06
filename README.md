@@ -90,20 +90,23 @@ docker run -p 8080:8080 leasewebassignment:local
 ## Project layout
 
 ```
-cmd/                          entrypoint
-internal/config/              config file loading + validation
-internal/log/                 structured (zap) logger construction
-internal/model/                domain types and CSV field parsing (price, RAM, HDD)
-internal/service/              upload/parse orchestration + logging decorator
-internal/store/                repository (in-memory) + filter evaluation
-internal/server/                HTTP server, routes
-internal/server/handlers/        request/response translation per route
-internal/server/middleware/      auth, request ID, access log, panic recovery, gzip
-internal/testutil/              shared deterministic fixture used by store/API tests
-internal/tests/                  end-to-end HTTP tests (see internal/tests/doc.go for why)
-web/                           static filter UI served at /ui/
-docs/api.md                    REST API reference for consumers
-postman/                       Postman collection
+cmd/                              entrypoint
+internal/config/                  config file loading + validation
+internal/platform/log/            structured (zap) logger construction - generic infra, no app types
+internal/platform/shutdown/       signal handling + graceful shutdown - generic infra, no app types
+internal/platform/httperr/        generic HTTP error-response scaffolding - no app types either
+internal/api/                     translates THIS app's error types (store/service) into httperr - the one non-generic piece
+internal/model/                    domain types and CSV field parsing (price, RAM, HDD)
+internal/service/                  upload/parse orchestration + logging decorator
+internal/store/                    repository (in-memory) + filter evaluation
+internal/server/                    HTTP server, routes
+internal/server/handlers/            request/response translation per route
+internal/server/middleware/          auth, request ID, access log, panic recovery, gzip
+internal/testutil/                  shared deterministic fixture used by store/API tests
+internal/tests/                      end-to-end HTTP tests (see internal/tests/doc.go for why)
+web/                               static filter UI served at /ui/
+docs/api.md                        REST API reference for consumers
+postman/                           Postman collection
 ```
 
 ## Logging & observability

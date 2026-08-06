@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/sahil/leasewebassignment/internal/api"
+	"github.com/sahil/leasewebassignment/internal/platform/httperr"
 	"github.com/sahil/leasewebassignment/internal/server/handlers"
 	"github.com/sahil/leasewebassignment/internal/server/middleware"
 )
@@ -58,7 +59,7 @@ func handleHealthz(w http.ResponseWriter, r *http.Request) {
 // this to gate traffic won't route requests to an instance with nothing to serve.
 func (s *Server) handleReadyz(w http.ResponseWriter, r *http.Request) {
 	if !s.ready.Load() {
-		api.WriteError(w, api.ServiceUnavailable(
+		api.WriteError(w, httperr.ServiceUnavailable(
 			"server has no data loaded yet",
 			"upload a catalog via POST /v1/admin/upload to recover",
 		))

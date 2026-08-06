@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/sahil/leasewebassignment/internal/api"
+	"github.com/sahil/leasewebassignment/internal/platform/httperr"
 	"go.uber.org/zap"
 )
 
@@ -38,7 +39,7 @@ func Adapt(logger *zap.SugaredLogger, fn HandlerFunc) http.HandlerFunc {
 			if status >= http.StatusInternalServerError && logger != nil {
 				logger.Errorw("handler error", "path", r.URL.Path, "status", status, "error", err)
 			}
-			api.WriteJSON(w, status, api.ErrorResponse{Error: apiErr})
+			httperr.WriteJSON(w, status, httperr.ErrorResponse{Error: apiErr})
 			return
 		}
 		if result == nil {
