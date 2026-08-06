@@ -263,8 +263,8 @@ Import the collection file at `postman/leasewebassignment.postman_collection.jso
 
 - `GET /v1/servers` does zero string parsing per request - total storage,
   RAM family, and disk type family are all parsed once when data is loaded
-  (`ReplaceServers`), not once per filter evaluation. See `todo.md`'s
-  Efficiency section for the full reasoning.
+  (`ReplaceServers`), not once per filter evaluation. See
+  `internal/store/store.go`'s `indexedServer` type.
 - `go test ./internal/store/... -bench .` (or `make bench`) benchmarks the
   read (`ListServers`) and write (`ReplaceServers`) paths against a
   synthetic 50,000-row catalog.

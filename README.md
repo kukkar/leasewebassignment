@@ -104,7 +104,6 @@ internal/tests/                  end-to-end HTTP tests (see internal/tests/doc.g
 web/                           static filter UI served at /ui/
 docs/api.md                    REST API reference for consumers
 postman/                       Postman collection
-backlog with rationale for each item
 ```
 
 ## Logging & observability
@@ -132,5 +131,4 @@ independently since it runs before the HTTP server is even listening.
   filtering normalizes both to the family the assignment's own filter spec
   uses (`16GB`, `SATA`). See `internal/model/server.go`.
 
-See [docs/api.md](docs/api.md) for the full API reference, and
-[todo.md](todo.md) for a running account of what's been improved and why.
+See [docs/api.md](docs/api.md) for the full API reference.

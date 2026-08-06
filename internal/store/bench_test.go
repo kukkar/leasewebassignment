@@ -30,9 +30,9 @@ func generateServers(n int) []model.Server {
 }
 
 // BenchmarkListServers measures the read path, which should stay cheap
-// regardless of catalog size since it only compares precomputed fields -
-// see todo.md's Efficiency section for the precompute-at-write design this
-// benchmark is meant to guard against regressing.
+// regardless of catalog size since it only compares precomputed fields
+// (see indexedServer in store.go) rather than re-parsing HDD/RAM strings
+// on every call - this benchmark guards against that regressing.
 func BenchmarkListServers(b *testing.B) {
 	repo := NewRepository(RepositoryConfig{UploadDir: b.TempDir()})
 	if err := repo.ReplaceServers(context.Background(), generateServers(50_000)); err != nil {
