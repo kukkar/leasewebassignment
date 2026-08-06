@@ -1,5 +1,9 @@
 server:
-  host: 127.0.0.1
+  # 0.0.0.0 so this works both natively (still reachable via localhost) and
+  # inside a container (127.0.0.1 there only accepts connections from
+  # within the container's own network namespace, which Docker's port
+  # mapping and PaaS load balancers can't reach).
+  host: 0.0.0.0
   port: 8080
   timeout: 30
 

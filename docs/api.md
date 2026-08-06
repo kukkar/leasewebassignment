@@ -22,7 +22,7 @@ If you do not have a `config.yaml`, create one with the following values:
 
 ```yaml
 server:
-  host: 127.0.0.1
+  host: 0.0.0.0 # not 127.0.0.1 - see the comment in config.yaml
   port: 8080
   timeout: 30
 
