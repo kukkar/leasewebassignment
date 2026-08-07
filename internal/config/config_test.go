@@ -96,3 +96,21 @@ func TestLoadMissingRequiredValue(t *testing.T) {
 		t.Fatal("expected load error")
 	}
 }
+
+// TestLoadZeroTimeout_Rejected locks in that server.timeout is required and
+// must be positive - net/http treats a zero ReadTimeout/WriteTimeout as "no
+// timeout at all", so a missing/zero value must fail loudly at load time
+// rather than silently produce an unbounded-request-duration server.
+func TestLoadZeroTimeout_Rejected(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.json")
+	content := `{
+        "server": {"host": "127.0.0.1", "port": 8080},
+        "app": {"data_file": "data/servers.csv", "upload_dir": "data/uploads"}
+    }`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(path); err == nil {
+		t.Fatal("expected load error for missing/zero server.timeout")
+	}
+}

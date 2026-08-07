@@ -10,6 +10,12 @@ This service exposes:
 
 The API returns JSON responses and uses a standard error contract for errors.
 
+An interactive Swagger UI is served at `/docs/` (e.g.
+`http://localhost:8080/docs/`), backed by the hand-written OpenAPI 3 spec at
+[`openapi.yaml`](openapi.yaml) (also served directly at `/openapi.yaml` for
+import into other tools). This document is the prose version of the same
+contract.
+
 ## Running the service
 
 Start the server with the repository root config file present:
@@ -24,7 +30,7 @@ If you do not have a `config.yaml`, create one with the following values:
 server:
   host: 0.0.0.0 # not 127.0.0.1 - see the comment in config.yaml
   port: 8080
-  timeout: 30
+  timeout: 30 # required, must be > 0 - applied as both the request read and write timeout
 
 app:
   data_file: data/servers.csv
@@ -36,9 +42,27 @@ app:
 
 ## Base URL
 
+Local development:
+
 ```text
 http://localhost:8080
 ```
+
+Live deployment:
+
+```text
+https://leasewebassignment-1.onrender.com
+```
+
+| Resource        | Local                                  | Deployed                                                  |
+|-----------------|-----------------------------------------|-------------------------------------------------------------|
+| Filter UI       | `http://localhost:8080/ui/`             | https://leasewebassignment-1.onrender.com/ui/               |
+| Swagger UI      | `http://localhost:8080/docs/`           | https://leasewebassignment-1.onrender.com/docs/              |
+| OpenAPI spec    | `http://localhost:8080/openapi.yaml`    | https://leasewebassignment-1.onrender.com/openapi.yaml       |
+| API base        | `http://localhost:8080/v1`              | https://leasewebassignment-1.onrender.com/v1                 |
+
+If the deployed instance has been idle, the first request may take a few
+seconds while Render spins it back up.
 
 ## API versioning
 
@@ -155,6 +179,10 @@ spreadsheet export carries a "Filters" reference table in trailing columns
 on every row - see Notes below).
 
 - `file` — form-data file upload field
+- Request body is capped at 20 MiB; a larger upload gets `413` (code
+  `request_too_large`) rather than being accepted and left to consume
+  unbounded memory or disk. Any part of the upload that spills to a
+  temporary file during parsing is deleted once the request completes.
 
 ### Example request
 
@@ -220,6 +248,16 @@ All errors are returned with the same JSON shape:
 
 Every response also carries an `X-Request-Id` header — include it when
 reporting an issue so the matching server log line can be found.
+
+### 404 and 405
+
+- A path that doesn't match any registered route returns `404` (code
+  `not_found`) in the standard error shape above — the one exception is the
+  literal root path `/`, which redirects to the bundled UI at `/ui/`.
+- A known path called with the wrong HTTP method returns `405` (code
+  `method_not_allowed`) with an `Allow` header listing the methods that
+  path actually supports, rather than silently falling through to a
+  different handler or a generic 404.
 
 ## CORS
 

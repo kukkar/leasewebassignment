@@ -1,0 +1,266 @@
+openapi: 3.0.3
+info:
+  title: Leaseweb Assignment API
+  description: >
+    Server catalog API: filter/list servers, replace the catalog via CSV
+    upload, and two ops endpoints for liveness/readiness. See docs/api.md
+    in the repository for the prose version of this same contract.
+  version: "1"
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+tags:
+  - name: servers
+    description: Server catalog
+  - name: admin
+    description: Catalog administration
+  - name: ops
+    description: Liveness / readiness (unversioned, not part of the client-facing API)
+
+paths:
+  /v1/servers:
+    get:
+      tags: [servers]
+      summary: List servers
+      description: >
+        Query server inventory with optional filters and pagination.
+        Filters compose with AND semantics; repeated `ram` params compose
+        with OR semantics within that one filter (checkbox-group style).
+      parameters:
+        - name: model
+          in: query
+          description: Case-insensitive substring match on model name.
+          schema:
+            type: string
+        - name: ram
+          in: query
+          description: >
+            Exact match against an allowed RAM value. Repeat the parameter
+            to select multiple, e.g. `ram=16GB&ram=32GB`.
+          schema:
+            type: array
+            items:
+              type: string
+              example: 16GB
+          style: form
+          explode: true
+        - name: location
+          in: query
+          description: Case-insensitive substring match.
+          schema:
+            type: string
+        - name: disk_type
+          in: query
+          description: >
+            Disk type family parsed from the HDD column, e.g. a drive
+            labeled `SATA2` in the source data matches `disk_type=SATA`.
+          schema:
+            type: string
+            enum: [SAS, SATA, SSD]
+        - name: storage_min
+          in: query
+          description: Minimum total storage. Accepts `GB`/`TB` units.
+          schema:
+            type: string
+            example: 500GB
+        - name: storage_max
+          in: query
+          description: Maximum total storage. Accepts `GB`/`TB` units.
+          schema:
+            type: string
+            example: 1TB
+        - name: limit
+          in: query
+          description: Page size. Capped at 200 regardless of what's requested.
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+            minimum: 1
+        - name: offset
+          in: query
+          description: Zero-based offset into the filtered result set.
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+      responses:
+        "200":
+          description: Matching servers, paginated.
+          headers:
+            ETag:
+              description: Hash of the response body; send back as If-None-Match to revalidate.
+              schema:
+                type: string
+            Cache-Control:
+              schema:
+                type: string
+                example: no-cache
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServerListResponse"
+        "304":
+          description: Not Modified — returned when If-None-Match matches the current ETag. No body.
+        "400":
+          description: One or more query parameters were invalid. Every problem found is reported in a single response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "405":
+          description: Wrong HTTP method for this path.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/admin/upload:
+    post:
+      tags: [admin]
+      summary: Replace the server catalog
+      description: >
+        Uploads a CSV file that replaces the current server inventory in
+        full. Not partially applied on error — a parse failure leaves the
+        previous catalog untouched. A successful upload is also the
+        documented recovery path when the server booted without data
+        (see /readyz).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: >
+                    CSV with columns Model,RAM,HDD,Location,Price (in that
+                    order). Price accepts €, $, and S$ prefixes. Columns
+                    beyond Price are ignored. Request body capped at 20 MiB.
+      responses:
+        "204":
+          description: Catalog replaced successfully. No body.
+        "400":
+          description: Missing/invalid file field or malformed CSV.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing or incorrect bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "405":
+          description: Wrong HTTP method for this path.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "413":
+          description: Request body exceeded the 20 MiB upload limit.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /healthz:
+    get:
+      tags: [ops]
+      summary: Liveness check
+      description: Always 200 once the process is serving HTTP at all, regardless of whether data has loaded.
+      responses:
+        "200":
+          description: Process is alive.
+
+  /readyz:
+    get:
+      tags: [ops]
+      summary: Readiness check
+      description: >
+        200 once server data has been successfully loaded at least once
+        (startup or a later upload); 503 until then.
+      responses:
+        "200":
+          description: Data is loaded; safe to route traffic here.
+        "503":
+          description: No data loaded yet.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: >
+        A plain pre-shared secret compared in constant time against
+        app.admin_token — not a signed/verified JWT, there are no claims
+        or expiry.
+
+  schemas:
+    Server:
+      type: object
+      properties:
+        model:
+          type: string
+          example: Dell R210
+        ram:
+          type: string
+          example: 16GBDDR3
+        hdd:
+          type: string
+          example: 2x2TBSATA2
+        location:
+          type: string
+          example: AmsterdamAMS-01
+        price:
+          type: number
+          format: float
+          example: 49.99
+
+    Meta:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Full count of servers matching the filter, independent of how many are in `data`.
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    ServerListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Server"
+        meta:
+          $ref: "#/components/schemas/Meta"
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: invalid_input
+            message:
+              type: string
+              example: invalid query parameters
+            details:
+              type: string
+              example: "ram: \"9999GB\" is invalid, must be one of: 2GB, 4GB, ..."

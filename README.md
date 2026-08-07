@@ -3,6 +3,17 @@
 A Go REST API for listing and filtering a server catalog, with a small
 filter UI, built for the Leaseweb technical assessment.
 
+## Live deployment
+
+Base URL: https://leasewebassignment-1.onrender.com
+
+- Filter UI: https://leasewebassignment-1.onrender.com/ui/
+- Swagger UI: https://leasewebassignment-1.onrender.com/docs/
+- OpenAPI spec: https://leasewebassignment-1.onrender.com/openapi.yaml
+
+If the instance has been idle, the first request may take a few seconds
+while Render spins it back up.
+
 ## Requirements
 
 - Go 1.25+
@@ -45,7 +56,9 @@ curl http://localhost:8080/readyz
 ```
 
 The API is versioned under `/v1` - see [docs/api.md](docs/api.md) for why,
-and for the full endpoint reference.
+and for the full endpoint reference. An interactive Swagger UI is served at
+`/docs/`, backed by the hand-written spec at
+[docs/openapi.yaml](docs/openapi.yaml).
 
 The server always boots, even if `app.data_file` is missing or fails to
 parse - a bad startup file logs an error but isn't fatal, since
@@ -103,10 +116,11 @@ internal/server/                    HTTP server, routes
 internal/server/handlers/            request/response translation per route
 internal/server/middleware/          auth, request ID, access log, panic recovery, gzip
 internal/testutil/                  shared deterministic fixture used by store/API tests
-internal/tests/                      end-to-end HTTP tests (see internal/tests/doc.go for why)
 web/                               static filter UI served at /ui/
 docs/api.md                        REST API reference for consumers
+docs/openapi.yaml                  hand-written OpenAPI 3 spec, served interactively at /docs/ (see internal/server/swaggerui.go)
 postman/                           Postman collection
+tests/                             end-to-end HTTP tests, root level not internal/ (see tests/doc.go for why)
 ```
 
 ## Logging & observability

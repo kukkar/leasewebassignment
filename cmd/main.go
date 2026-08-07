@@ -88,6 +88,7 @@ func logEffectiveConfig(logger *zap.SugaredLogger, cfg *config.Config) {
 	logger.Infow("effective config",
 		"server_host", cfg.Server.Host,
 		"server_port", cfg.Server.Port,
+		"server_timeout_seconds", cfg.Server.Timeout,
 		"data_file", cfg.App.DataFile,
 		"upload_dir", cfg.App.UploadDir,
 		"admin_token_set", cfg.App.AdminToken != "",
@@ -107,10 +108,13 @@ func runServer(cfg *config.Config, svc service.Service, logger *zap.SugaredLogge
 		Ready:            ready,
 	})
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
+	requestTimeout := time.Duration(cfg.Server.Timeout) * time.Second
 	srv := &http.Server{
 		Addr:              addr,
 		Handler:           httpServer,
 		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       requestTimeout,
+		WriteTimeout:      requestTimeout,
 		IdleTimeout:       60 * time.Second,
 	}
 

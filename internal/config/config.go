@@ -13,9 +13,15 @@ import (
 )
 
 type ServerConfig struct {
-	Host    string `json:"host" yaml:"host"`
-	Port    int    `json:"port" yaml:"port"`
-	Timeout int    `json:"timeout" yaml:"timeout"`
+	Host string `json:"host" yaml:"host"`
+	Port int    `json:"port" yaml:"port"`
+	// Timeout bounds how long a single request is allowed to take, in
+	// seconds - applied to both the HTTP server's ReadTimeout and
+	// WriteTimeout (see runServer in cmd/main.go). Required and must be
+	// positive: a zero value would disable the timeout entirely (net/http
+	// treats 0 as "no timeout"), which is never what an unset config value
+	// should silently produce.
+	Timeout int `json:"timeout" yaml:"timeout"`
 }
 
 type AppConfig struct {
@@ -73,6 +79,9 @@ func (c *Config) Validate() error {
 	}
 	if c.Server.Port == 0 {
 		return fmt.Errorf("server.port is required")
+	}
+	if c.Server.Timeout <= 0 {
+		return fmt.Errorf("server.timeout must be a positive number of seconds")
 	}
 	if c.App.DataFile == "" {
 		return fmt.Errorf("app.data_file is required")

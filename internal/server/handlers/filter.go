@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -24,6 +25,12 @@ const (
 
 	DefaultLimit = 50
 	MaxLimit     = 200
+
+	// MaxUploadMemory is the in-memory portion multipart parsing is allowed
+	// to use before spilling additional parts to a disk temp file - not an
+	// overall size cap. See middleware.NewMaxBytesMiddleware (wired in
+	// routes.go) for the hard limit on the request body itself.
+	MaxUploadMemory = 10 << 20 // 10 MiB
 )
 
 type GetServersRequest struct {
@@ -189,7 +196,15 @@ type UploadServerRequest struct {
 }
 
 func NewUploadServerRequest(r *http.Request) (*UploadServerRequest, *httperr.APIError) {
-	if err := r.ParseMultipartForm(10 << 20); err != nil {
+	if err := r.ParseMultipartForm(MaxUploadMemory); err != nil {
+		// The body-size limit (middleware.NewMaxBytesMiddleware) surfaces
+		// here as a read error partway through parsing - distinguish it
+		// from a generically malformed payload so the client gets 413, not
+		// a plain 400 that doesn't explain the request was simply too big.
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			return nil, httperr.RequestTooLarge("upload too large", fmt.Sprintf("request body exceeds the %d byte limit", tooLarge.Limit))
+		}
 		return nil, httperr.InvalidInput("invalid multipart payload", err.Error())
 	}
 

@@ -35,6 +35,15 @@ func (h *Handler) Upload(r *http.Request) (*HandlerResult, error) {
 		return nil, apiErr
 	}
 	defer func() { _ = uploadReq.File.Close() }()
+	// ParseMultipartForm (inside NewUploadServerRequest) may have spilled
+	// part of the upload to an OS temp file once it exceeded the in-memory
+	// threshold (MaxUploadMemory). Without this, that temp file is never
+	// deleted - a slow disk leak, one file per large-enough upload.
+	defer func() {
+		if r.MultipartForm != nil {
+			_ = r.MultipartForm.RemoveAll()
+		}
+	}()
 
 	if err := h.Service.UploadServerData(r.Context(), uploadReq.FileName, uploadReq.File); err != nil {
 		return nil, err

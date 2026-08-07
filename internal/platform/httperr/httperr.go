@@ -19,10 +19,12 @@ const (
 	CodeInvalidInput       = "invalid_input"
 	CodeUnauthorized       = "unauthorized"
 	CodeNotFound           = "not_found"
+	CodeMethodNotAllowed   = "method_not_allowed"
 	CodeInternalError      = "internal_error"
 	CodeCSVValidation      = "csv_validation_error"
 	CodeMissingParameter   = "missing_parameter"
 	CodeServiceUnavailable = "service_unavailable"
+	CodeRequestTooLarge    = "request_too_large"
 )
 
 type APIError struct {
@@ -65,6 +67,14 @@ func Unauthorized(message, details string) *APIError {
 
 func NotFound(message, details string) *APIError {
 	return NewAPIError(CodeNotFound, message, http.StatusNotFound, details)
+}
+
+func MethodNotAllowed(message, details string) *APIError {
+	return NewAPIError(CodeMethodNotAllowed, message, http.StatusMethodNotAllowed, details)
+}
+
+func RequestTooLarge(message, details string) *APIError {
+	return NewAPIError(CodeRequestTooLarge, message, http.StatusRequestEntityTooLarge, details)
 }
 
 func InternalError(message, details string) *APIError {
