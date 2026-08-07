@@ -109,12 +109,22 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: invalid_input
+                  message: invalid query parameters
+                  details: 'ram: "9999GB" is invalid, must be one of: 2GB, 4GB, 8GB, 12GB, 16GB, 24GB, 32GB, 48GB, 64GB, 96GB'
         "405":
           description: Wrong HTTP method for this path.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: method_not_allowed
+                  message: method not allowed
+                  details: POST is not supported on this path, use GET
 
   /v1/admin/upload:
     post:
@@ -147,29 +157,51 @@ paths:
         "204":
           description: Catalog replaced successfully. No body.
         "400":
-          description: Missing/invalid file field or malformed CSV.
+          description: >
+            Missing/invalid file field (code `invalid_input`) or malformed
+            CSV content (code `csv_validation_error`, shown below).
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: csv_validation_error
+                  message: invalid csv payload
+                  details: "row 2: read csv: wrong number of fields"
         "401":
           description: Missing or incorrect bearer token.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: unauthorized
+                  message: authorization required
+                  details: authorization header must be 'Bearer <token>' with a valid token
         "405":
           description: Wrong HTTP method for this path.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: method_not_allowed
+                  message: method not allowed
+                  details: GET is not supported on this path, use POST
         "413":
           description: Request body exceeded the 20 MiB upload limit.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: request_too_large
+                  message: upload too large
+                  details: "request body exceeds the 20971520 byte limit"
 
   /healthz:
     get:
@@ -196,6 +228,11 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: service_unavailable
+                  message: server has no data loaded yet
+                  details: upload a catalog via POST /v1/admin/upload to recover
 
 components:
   securitySchemes:

@@ -28,5 +28,6 @@ COPY --from=builder /leasewebassignment /usr/local/bin/leasewebassignment
 COPY config.yaml ./config.yaml
 COPY data ./data
 COPY web ./web
+COPY docs/openapi.yaml ./docs/openapi.yaml
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/leasewebassignment", "-config=config.yaml"]
