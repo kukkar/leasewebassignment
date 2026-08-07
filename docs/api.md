@@ -35,10 +35,17 @@ server:
 app:
   data_file: data/servers.csv
   upload_dir: data/uploads
-  admin_token: your-secret-key
+  # admin_token: set via the ADMIN_TOKEN env var instead - see below.
   logging:
     level: info # debug | info | warn | error
 ```
+
+`admin_token` is deliberately left out of the committed config example: set
+it via the `ADMIN_TOKEN` environment variable, which always takes priority
+over `app.admin_token` if both are present. A checked-in config file is the
+wrong place for a real credential; an unset token on both fronts fails
+closed (`POST /v1/admin/upload` rejects everything) rather than silently
+running unauthenticated.
 
 ## Base URL
 

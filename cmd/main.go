@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
-	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -36,7 +34,6 @@ func main() {
 	}
 	defer logger.Sync() //nolint:errcheck
 
-	applyPortOverride(cfg, logger)
 	logEffectiveConfig(logger, cfg)
 
 	repo := store.NewRepository(store.RepositoryConfig{UploadDir: cfg.App.UploadDir})
@@ -60,24 +57,6 @@ func main() {
 	}
 
 	runServer(cfg, svc, logger, ready)
-}
-
-// applyPortOverride honors the PORT environment variable most PaaS
-// platforms (Render, Heroku, Railway, ...) inject at deploy time to tell
-// the app which port to bind - the platform's load balancer routes to that
-// port, not whatever's in a checked-in config file, so config.yaml's port
-// has to be treated as a default, not the final word.
-func applyPortOverride(cfg *config.Config, logger *zap.SugaredLogger) {
-	raw := os.Getenv("PORT")
-	if raw == "" {
-		return
-	}
-	port, err := strconv.Atoi(raw)
-	if err != nil || port <= 0 {
-		logger.Warnw("ignoring invalid PORT environment variable", "value", raw)
-		return
-	}
-	cfg.Server.Port = port
 }
 
 // logEffectiveConfig logs what was actually loaded so "what config is this

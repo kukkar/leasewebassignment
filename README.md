@@ -28,7 +28,21 @@ go mod download
 ```
 
 The repo ships with `config.yaml` and `data/servers.csv` already in place, so
-no further setup is required to run it.
+no further setup is required to run it - `GET /v1/servers` and the UI work
+immediately. `POST /v1/admin/upload` is the one exception: `config.yaml`
+deliberately ships with no `admin_token` (a committed config file is the
+wrong place for a real credential), so that endpoint fails closed until you
+set one:
+
+```bash
+export ADMIN_TOKEN=whatever-you-want-locally
+make run-server
+```
+
+`ADMIN_TOKEN` always takes priority over `app.admin_token` in the config
+file - see `applyEnvOverrides` in `internal/config/config.go`. The deployed instance
+sets this the same way, via Render's environment variable settings, not a
+committed file.
 
 ## Running
 

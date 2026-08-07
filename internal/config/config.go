@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 
 	"gopkg.in/yaml.v3"
 )
@@ -32,7 +33,10 @@ type AppConfig struct {
 	// not a JWT. There's no user/claims concept in this service, so a
 	// shared secret is the right-sized tool for its one admin action;
 	// don't rename this back to anything JWT-flavored unless the auth
-	// model actually grows real token verification to match.
+	// model actually grows real token verification to match. The
+	// ADMIN_TOKEN environment variable always takes priority over this
+	// field - see applyEnvOverrides - since a committed config file is the
+	// wrong place for a real credential.
 	AdminToken       string        `json:"admin_token" yaml:"admin_token"`
 	Logging          LoggingConfig `json:"logging" yaml:"logging"`
 	AllowedRAM       []string      `json:"allowed_ram" yaml:"allowed_ram"`
@@ -67,10 +71,37 @@ func Load(path string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := cfg.applyEnvOverrides(); err != nil {
+		return nil, err
+	}
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
 	return cfg, nil
+}
+
+// applyEnvOverrides lets deployment-time environment variables take
+// priority over the checked-in config file - preference is always env var
+// first, falling back to whatever the file says (or its zero value) only
+// when the variable isn't set. Two fields use this, for two different
+// reasons: ADMIN_TOKEN because a committed file is the wrong place for a
+// real credential (config.yaml intentionally ships with no admin_token at
+// all), and PORT because most PaaS platforms (Render, Heroku, Railway,
+// ...) assign the port at deploy time and route their load balancer to it
+// - config.yaml's port is only ever the local-dev default, never the final
+// word once deployed.
+func (c *Config) applyEnvOverrides() error {
+	if token := os.Getenv("ADMIN_TOKEN"); token != "" {
+		c.App.AdminToken = token
+	}
+	if raw := os.Getenv("PORT"); raw != "" {
+		port, err := strconv.Atoi(raw)
+		if err != nil || port <= 0 {
+			return fmt.Errorf("invalid PORT environment variable %q: must be a positive integer", raw)
+		}
+		c.Server.Port = port
+	}
+	return nil
 }
 
 func (c *Config) Validate() error {

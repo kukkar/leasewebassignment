@@ -10,8 +10,12 @@ server:
 app:
   data_file: data/servers.csv
   upload_dir: data/uploads
-  # Demo placeholder credential for POST /v1/admin/upload - rotate this
-  # before any real deployment, this exact value is committed to the repo.
-  admin_token: secret-key
+  # Deliberately not set here - this file is committed to source control,
+  # so a real credential doesn't belong in it. Set the ADMIN_TOKEN
+  # environment variable instead (see applyEnvOverrides in internal/config)
+  # to gate POST /v1/admin/upload; for local development, either export
+  # ADMIN_TOKEN or set admin_token below (untracked, uncommitted changes
+  # to this file only).
+  # admin_token: your-local-dev-token
   logging:
     level: info
