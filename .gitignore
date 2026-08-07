@@ -12,6 +12,7 @@ Assessment-backend27.docx
 # Go build outputs
 /bin/
 /pkg/
+coverage.out
 
 # Runtime artifacts written by the running server, not source
 data/uploads/

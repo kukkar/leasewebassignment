@@ -3,7 +3,7 @@ GO := go
 CMD := ./cmd
 CONFIG ?= config.yaml
 
-.PHONY: all build run-server test vet lint verify bench docker clean
+.PHONY: all build run-server test vet lint verify bench cover docker clean
 
 all: build
 
@@ -24,6 +24,15 @@ lint:
 
 bench:
 	$(GO) test ./internal/store/... -run '^$$' -bench . -benchmem
+
+# -coverpkg=./... attributes coverage to the package that owns the code, not
+# just the package the test file lives in - without it, internal/server and
+# internal/server/handlers show as 0% even though tests/ (the e2e suite)
+# exercises them thoroughly through the real HTTP stack rather than in
+# isolation.
+cover:
+	$(GO) test ./... -coverpkg=./... -coverprofile=coverage.out
+	$(GO) tool cover -func=coverage.out | tail -1
 
 # verify is the single command CI and local pre-submit checks both run.
 # It exists specifically so "does it compile" is caught before "do the tests

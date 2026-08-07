@@ -81,7 +81,23 @@ tooling:
 ```bash
 make lint      # golangci-lint (govet, staticcheck, unused, errcheck, ...)
 make bench     # benchmarks the store package's read/write paths
+make cover     # test coverage, attributed correctly across package boundaries
 ```
+
+### Test coverage
+
+**76.4%** overall (`make cover`), 20 test files: unit tests per package plus
+an end-to-end suite (`tests/`) that drives the real HTTP stack - routing,
+middleware, auth, uploads, pagination, error responses - through
+`httptest.Server`, not mocks.
+
+`go test`'s default coverage only attributes a line to the package whose
+*test file* exercised it, so `internal/server`/`internal/server/handlers`
+would misleadingly show 0% even though the e2e suite covers them thoroughly
+- it just exercises them through `internal/server`'s public API rather than
+from within the package itself. `make cover` uses `-coverpkg=./...` so
+coverage is attributed to the package that owns the code, wherever the test
+that exercises it lives.
 
 Build and vet run before tests in both `make verify` and CI specifically so
 a compile break is never masked by an unrelated package's test output.
