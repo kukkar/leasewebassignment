@@ -29,9 +29,15 @@ bench:
 # just the package the test file lives in - without it, internal/server and
 # internal/server/handlers show as 0% even though tests/ (the e2e suite)
 # exercises them thoroughly through the real HTTP stack rather than in
-# isolation.
+# isolation. -p 1 forces package test binaries to run sequentially rather
+# than in parallel - with -coverpkg=./..., every package's test binary
+# writes coverage counts for the *same* shared packages into one profile
+# file, and letting them run concurrently is a real, observed bug here: the
+# final "total" percentage came out different on every run (71%, 76%, 78%)
+# from identical code, because concurrent writes to coverage.out raced.
+# Sequential is slower but the number this produces is actually trustworthy.
 cover:
-	$(GO) test ./... -coverpkg=./... -coverprofile=coverage.out
+	$(GO) test ./... -p 1 -coverpkg=./... -coverprofile=coverage.out
 	$(GO) tool cover -func=coverage.out | tail -1
 
 # verify is the single command CI and local pre-submit checks both run.

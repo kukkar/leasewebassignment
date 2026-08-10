@@ -100,10 +100,13 @@ make cover     # test coverage, attributed correctly across package boundaries
 
 ### Test coverage
 
-**76.4%** overall (`make cover`), 20 test files: unit tests per package plus
+**78.0%** overall (`make cover`), 21 test files: unit tests per package plus
 an end-to-end suite (`tests/`) that drives the real HTTP stack - routing,
 middleware, auth, uploads, pagination, error responses - through
-`httptest.Server`, not mocks.
+`httptest.Server`, not mocks. See [testing.md](testing.md) for the filter
+API's test plan specifically - the highest-stakes part of this project - and
+how it's verified against both a hand-computed fixture and the actual
+486-row production dataset.
 
 `go test`'s default coverage only attributes a line to the package whose
 *test file* exercised it, so `internal/server`/`internal/server/handlers`
@@ -111,7 +114,11 @@ would misleadingly show 0% even though the e2e suite covers them thoroughly
 - it just exercises them through `internal/server`'s public API rather than
 from within the package itself. `make cover` uses `-coverpkg=./...` so
 coverage is attributed to the package that owns the code, wherever the test
-that exercises it lives.
+that exercises it lives - and `-p 1` because that combination has a real,
+observed bug otherwise: with every package's test binary instrumenting the
+*same* shared packages and writing to one profile file, letting them run in
+parallel (`go test`'s default) is a race - the same code produced a
+different total on every run (71%, 76%, 78%) until this was pinned down.
 
 Build and vet run before tests in both `make verify` and CI specifically so
 a compile break is never masked by an unrelated package's test output.
@@ -151,6 +158,7 @@ docs/api.md                        REST API reference for consumers
 docs/openapi.yaml                  hand-written OpenAPI 3 spec, served interactively at /docs/ (see internal/server/swaggerui.go)
 postman/                           Postman collection
 tests/                             end-to-end HTTP tests, root level not internal/ (see tests/doc.go for why)
+particular
 ```
 
 ## Logging & observability
